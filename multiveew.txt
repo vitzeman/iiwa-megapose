@@ -1,0 +1,4 @@
+je nutn7 spustit opcua server
+    z Helper\opcua_server_iiwa.py
+pak spustit main
+momentálně je problém s bázemi a tak dále

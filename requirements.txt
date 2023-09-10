@@ -1,0 +1,10 @@
+requests
+opcua
+cryptography
+pypylon
+numpy
+opencv-python
+opencv-contrib-python
+matplotlib
+transforms3d
+
