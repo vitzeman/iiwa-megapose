@@ -11,11 +11,9 @@ import numpy as np
 
 import logging
 
-logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
-
-
-# TODO LIST:
-# 1. Add function to get stream of images from camera
+logging.basicConfig(
+    format="%(levelname)s %(asctime)s - %(message)s", level=logging.INFO
+)
 
 
 class BaslerCamera:
@@ -60,6 +58,8 @@ class BaslerCamera:
 
         if save_location != "":
             os.makedirs(save_location, exist_ok=True)
+
+        self.save_location = save_location
 
         if camera_parametes is not None:
             self.camera_params = self.load_camera_config(
@@ -290,7 +290,9 @@ class BaslerCamera:
 
 # ---------------------------------------------------------------------------- #
 # Few demos of usage
-def manually_capture_images(save_location: str = "images/"):
+def manually_capture_images(
+    save_location: str = os.path.join("camera", "images", "demo")
+) -> None:
     """Manually capture images from camera and saves them to file"""
     camera = BaslerCamera(save_location=save_location)
     camera.connect()
@@ -301,32 +303,54 @@ def manually_capture_images(save_location: str = "images/"):
 
         cv2.imshow("image", image)
 
-        key = cv2.waitKey(0)
+        key = cv2.waitKey(100)
         should_break = camera.process_key(key)
-        if should_break:
+
+        # End the program if the user pressed 'q' or closed the window
+        if should_break or cv2.getWindowProperty("image", cv2.WND_PROP_VISIBLE) < 1:
+            logging.info("Exiting program")
             break
 
+    cv2.destroyAllWindows()
     camera.disconnect()
 
-
-# THIS IS JUST A SHOT INTO THE DARK, NOT TESTED
-def save_video(name: str = "demo_video.mp4"):
-    camera = BaslerCamera()
+# Does not work try home with different camera
+def record_video(
+    save_location: str = os.path.join("camera", "videos", "demo"),
+    video_name: str = "demo.mp4",
+    fps: int = 10,
+) -> None:
+    """Record video from camera and saves it to file"""
+    camera = BaslerCamera(save_location=save_location)
     camera.connect()
     camera.adjust_camera()
     cv2.namedWindow("image", cv2.WINDOW_NORMAL)
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    out = cv2.VideoWriter(name, fourcc, 20.0, (640, 480))
+
+    image = camera.get_single_image()
+    resolution = image.shape[:2]
+
+    fourcc = cv2.VideoWriter_fourcc(*'DIVX')
+    out = cv2.VideoWriter(
+        os.path.join(save_location, video_name), fourcc, fps, frameSize=(500, 500)
+    )
     while True:
         image = camera.get_single_image()
-        out.write(image)
-        cv2.imshow("image", image)
 
-        key = cv2.waitKey(1)
+        cv2.imshow("image", image)
+        
+        key = cv2.waitKey(int(1/fps * 1000))
         should_break = camera.process_key(key)
-        if should_break:
+        out.write(image)
+        # End the program if the user pressed 'q' or closed the window
+        if should_break or cv2.getWindowProperty("image", cv2.WND_PROP_VISIBLE) < 1:
+            logging.info("Exiting program")
             break
+    
+    cv2.destroyAllWindows()
+    out.release()
+    camera.disconnect()
 
 
 if __name__ == "__main__":
     manually_capture_images()
+    
