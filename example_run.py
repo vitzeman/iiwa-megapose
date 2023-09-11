@@ -10,6 +10,7 @@ import numpy as np
 import json
 from utils.robot_motion import path, SubHandler
 
+
 # get instance of the pylon TransportLayerFactory
 tlf = pylon.TlFactory.GetInstance()
 devices = tlf.EnumerateDevices()
@@ -21,18 +22,20 @@ for d in devices:
     if d.GetSerialNumber() == serial_number:
         bop_cam = d
 
-camera = pylon.InstantCamera(tlf.CreateDevice(bop_cam))
-camera.Open()
+# camera = pylon.InstantCamera(tlf.CreateDevice(bop_cam))
+# camera.Open()
 
-## Set things to auto for best image possible
-camera.GainAuto.SetValue("Once")
-camera.ExposureAuto.SetValue("Once")
-camera.BalanceWhiteAuto.SetValue("Once")
+# ## Set things to auto for best image possible
+# camera.GainAuto.SetValue("Once")
+# camera.ExposureAuto.SetValue("Once")
+# camera.BalanceWhiteAuto.SetValue("Once")
 
-camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
-converter = pylon.ImageFormatConverter()
-converter.OutputPixelFormat = pylon.PixelType_BGR8packed
+# camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+# converter = pylon.ImageFormatConverter()
+# converter.OutputPixelFormat = pylon.PixelType_BGR8packed
 
+from pose_generator.pose_gen import generate_poses
+from camera.basler_camera import BaslerCamera
 
 if __name__ == "__main__":
     client = Client("opc.tcp://localhost:5000/")
@@ -71,12 +74,36 @@ if __name__ == "__main__":
     # handler.move_to_position_with_points(input, X=30, Y=0, Z=-400, RA=180, RB=0, RC=90)
 
     # This works for some reason
-    handler.move_to_position_with_points(
-        input, X=-200.0, Y=-500.0, Z=500.0, RA=90, RB=0, RC=90
-    )
-    handler.move_to_position_with_points(
-        input, X=-200.0, Y=-500.0, Z=300.0, RA=90, RB=0, RC=90
-    )
+    # handler.move_to_position_with_points(
+    #     input, X=-200.0, Y=-500.0, Z=500.0, RA=90, RB=0, RC=90
+    # )
+
+    cam = BaslerCamera(save_location="images")
+    cam.connect()
+    cam.adjust_camera()
+
+    
+
+    poses = generate_poses(np.array([-200, -500, 0]), 500)
+    success_count = 0
+    for pose in poses:
+        X, Y, Z, RA, RB, RC = pose
+        handler.move_to_position_with_points(
+            input, X=X, Y=Y, Z=Z, RA=90, RB=0, RC=90
+        )
+        operation = handler.check_point_fail_pass(input)
+        print(operation)
+        if operation:
+            success_count += 1
+            print(f"O:{operation}")
+            cam.save_current_image()
+
+        print("Pushing new pose")
+
     # transf, RX, RY, RZ, RA, RB, RC = handler.get_current_pos_base(input)
-    print("FInished moving")
+    handler.move_to_position_with_points(
+        input, X=-200.0, Y=-500.0, Z=400.0, RA=90, RB=0, RC=90
+    )
+    print("Finished moving")
+    print(f"Success count: {success_count}/{len(poses)}")
     client.disconnect()

@@ -12,7 +12,7 @@ from opcua import ua, uamethod, Server
 KUKA_CONTROLLER = b'172.31.1.10'
 KUKA_CONTROLLER_IP = b'http://' + KUKA_CONTROLLER + b':30000/'
 
-out_queue = queue.Queue
+out_queue = queue.Queue()
 
 class SubHandler(object):
     def datachange_notification(self, node, val, data):

@@ -21,17 +21,17 @@ for d in devices:
     if d.GetSerialNumber() == serial_number:
         bop_cam = d
 
-camera = pylon.InstantCamera(tlf.CreateDevice(bop_cam))
-camera.Open()
+# camera = pylon.InstantCamera(tlf.CreateDevice(bop_cam))
+# camera.Open()
 
-## Set things to auto for best image possible
-camera.GainAuto.SetValue("Once")
-camera.ExposureAuto.SetValue("Once")
-camera.BalanceWhiteAuto.SetValue("Once")
+# ## Set things to auto for best image possible
+# camera.GainAuto.SetValue("Once")
+# camera.ExposureAuto.SetValue("Once")
+# camera.BalanceWhiteAuto.SetValue("Once")
 
-camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
-converter = pylon.ImageFormatConverter()
-converter.OutputPixelFormat = pylon.PixelType_BGR8packed
+# camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+# converter = pylon.ImageFormatConverter()
+# converter.OutputPixelFormat = pylon.PixelType_BGR8packed
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-n', '--name', type=str, required=True, help="specify the name of the object")
@@ -140,7 +140,7 @@ if __name__ == "__main__":
         # for dataset
         distance = 300
         z_offset = 0
-        motion = path(center_x= 550, center_y= -50, number_points= 12, distance = distance, min_height= 270, height_change= 30, z_offset = z_offset, max_height= distance)
+        motion = path(center_x=-200, center_y= -500, number_points= 12, distance = distance, min_height= 270, height_change= 30, z_offset = z_offset, max_height= distance)
 
         # for calibration
         # motion = path(center_x= -200, center_y= -500, number_points= 16, distance = 300, min_height=0, height_change= 30, z_offset = z_offset, max_height= 300)
@@ -196,13 +196,13 @@ if __name__ == "__main__":
                         pose_dict[fname]['img_size'] = camera_config['img_size']
                         pose_dict[fname]['W2C'] = transf.tolist()
 
-                        grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-                        if camera.IsGrabbing():
-                            if grabResult.GrabSucceeded():
-                                image = converter.Convert(grabResult)
-                                img = image.GetArray()
-                                cv2.imwrite(os.path.join(img_dir, str(frame) + ".jpg"), img)
-                                frame += 1
+                        # grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+                        # if camera.IsGrabbing():
+                        #     if grabResult.GrabSucceeded():
+                        #         image = converter.Convert(grabResult)
+                        #         img = image.GetArray()
+                        #         cv2.imwrite(os.path.join(img_dir, str(frame) + ".jpg"), img)
+                        #         frame += 1
 
                         point_done = np.array((int(point[0]), int(point[1])))
                         completed_points.append(point_done)
