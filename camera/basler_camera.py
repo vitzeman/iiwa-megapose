@@ -11,9 +11,17 @@ import numpy as np
 
 import logging
 
-logging.basicConfig(
-    format="%(levelname)s %(asctime)s - %(message)s", level=logging.INFO
-)
+
+# logging just from this file
+logging.getLogger(__name__)
+
+#TODO: Add that the logger shows only this logger
+# logging.getLogger().setLevel(logging.INFO)
+
+
+# logging.basicConfig(
+    # format="%(levelname)s %(asctime)s - %(message)s", level=logging.INFO
+# )
 
 
 class BaslerCamera:
