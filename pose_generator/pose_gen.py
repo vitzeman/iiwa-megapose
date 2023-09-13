@@ -3,6 +3,8 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
+# from scipy.spatial.transform import Rotation as R
+
 # from scipy.spatial.transform import Rotation as R.
 
 
@@ -85,7 +87,7 @@ def rotation_angles(matrix, order):
     return (theta1, theta2, theta3)
 
 
-def roation_matrix_x(theta, units="deg"):
+def rotation_matrix_x(theta, units="deg"):
     if units == "deg":
         theta = np.deg2rad(theta)
     if units not in ["deg", "rad"]:
@@ -99,7 +101,7 @@ def roation_matrix_x(theta, units="deg"):
     )
 
 
-def roation_matrix_y(theta, units="deg"):
+def rotation_matrix_y(theta, units="deg"):
     if units == "deg":
         theta = np.deg2rad(theta)
     if units not in ["deg", "rad"]:
@@ -113,7 +115,7 @@ def roation_matrix_y(theta, units="deg"):
     )
 
 
-def roation_matrix_z(theta, units="deg"):
+def rotation_matrix_z(theta, units="deg"):
     if units == "deg":
         theta = np.deg2rad(theta)
     if units not in ["deg", "rad"]:
@@ -144,6 +146,75 @@ def nice_print(pose: list) -> None:
     )
 
 
+def align_vectors(v_i, v_t, y_rotation: float = 0.0, units="deg") -> tuple:
+    """Aligns the vector v_i to v_t by rotation zyx, wheen y rotation can be given
+
+    Args:
+        v_i (_type_): _description_
+        v_t (_type_): _description_
+        y_rotation (float, optional): _description_. Defaults to 0.0.
+        units (str, optional): Units used for the . Defaults to "deg".
+
+    Returns:
+        tuple: (Rz, Ry, Rx) euler angles in radians
+    """
+    if units not in ["deg", "rad"]:
+        raise ValueError("units must be 'deg' or 'rad'")
+    pass
+
+    if units == "deg":
+        y_rotation = np.deg2rad(y_rotation)
+
+    vi_orig = v_i.copy()
+    Rz, Ry, Rx = 0, 0, 0
+
+    vi_xy = np.array([v_i[0], v_i[1], 0])
+    vt_xy = np.array([v_t[0], v_t[1], 0])
+
+    vi_xy = vi_xy / np.linalg.norm(vi_xy)
+    vt_xy = vt_xy / np.linalg.norm(vt_xy)
+
+    # Rotation around z axis
+    Rz = np.arccos(np.dot(vi_xy, vt_xy) / (np.linalg.norm(vi_xy) * np.linalg.norm(vt_xy)))
+    if vi_xy[0] * vt_xy[1] - vi_xy[1] * vt_xy[0] < 0:
+        Rz = -Rz
+    print("Z rotation", np.rad2deg(Rz))
+    Rtx_z = rotation_matrix_z(Rz, units="rad")
+    v_i = Rtx_z @ v_i.reshape(3, 1)
+
+    print(v_i, v_t)
+
+    # Rotation around y axis which is given by the user
+    Ry = y_rotation
+    Rtx_y = rotation_matrix_y(Ry, units="rad")
+    v_i = Rtx_y @ v_i.reshape(3, 1)
+
+
+    print(v_i, v_t)
+
+    vi_yz = np.array([0, v_i[1,0], v_i[2,0]])
+    vt_yz = np.array([0, v_t[1], v_t[2]])
+    vi_yz = vi_yz / np.linalg.norm(vi_yz)
+    vt_yz = vt_yz / np.linalg.norm(vt_yz)
+
+    Rx = np.arccos(np.dot(vi_yz, vt_yz) / (np.linalg.norm(vi_yz) * np.linalg.norm(vt_yz)))
+    if vi_yz[1] * vt_yz[2] - vi_yz[2] * vt_yz[1] < 0:
+        Rx = -Rx
+
+    print("Z rotation", np.rad2deg(Rx))
+    Rtx_x = rotation_matrix_x(Rx, units="rad")
+
+    print(Rtx_x)
+    print(v_i)
+
+    print(vi_orig)
+    print(Rtx_z @ Rtx_y @ Rtx_x @ vi_orig.reshape(3, 1))
+    v_i = Rtx_x @ v_i.reshape(3, 1)
+    print(v_i, "==", v_t)
+    return (Rz, Ry, Rx)
+
+
+
 def generate_poses(center, radius):
     poses = []
     theta_gen = range(0, 21, 20)
@@ -161,30 +232,16 @@ def generate_poses(center, radius):
 
             if y > 0 or y < -1000:
                 continue
-
+            center = np.array(center)
             look_vector = np.array([x, y, z]) - center
             look_vector = look_vector / np.linalg.norm(look_vector)
-        
+
             # Camera looks in direction of negative y axis
-            look_vector = -look_vector
-            # Align the transformed y axis with the look vector
-            # Decide that z rotation is 90
+            look_vector = -1 * look_vector
+            y_axis = np.array([0, 1, 0])
+            print(type(look_vector))
+            Rz, Ry, Rx = align_vectors(y_axis, look_vector)
 
-            a_z = np.deg2rad(90)
-            a_y = np.deg2rad(0)
-            a_x = np.deg2rad(90)
-
-            # Get the rotation matrices
-            # Rz = roation_matrix_z(a_z, units="rad")
-            # Ry = roation_matrix_y(a_y, units="rad")
-            # Rx = roation_matrix_x(a_x, units="rad")
-
-
-            # # Get the rotation matrix
-            # R = Rx @ Ry @ Rz
-            # Get the rotation angles
-            # Rz, Ry, Rx = rotation_angles(R, "zyx")           
-            Rx, Ry, Rz =a_x, a_y, a_z
             Rx, Ry, Rz = np.rad2deg([Rx, Ry, Rz])
             if theta == 0:
                 poses.append([x, y, z, Rz, Ry, Rx])
@@ -197,9 +254,9 @@ def generate_poses(center, radius):
 
 def visualize_pose(pose: list, ax):
     x, y, z, Rz, Ry, Rx = pose
-    Rtx_x = roation_matrix_x(Rx, units="deg")
-    Rtx_y = roation_matrix_y(Ry, units="deg")
-    Rtx_z = roation_matrix_z(Rz, units="deg")
+    Rtx_x = rotation_matrix_x(Rx, units="deg")
+    Rtx_y = rotation_matrix_y(Ry, units="deg")
+    Rtx_z = rotation_matrix_z(Rz, units="deg")
 
     # Rotation is applied in the order of z, y, x
     Rtx = Rtx_z @ Rtx_y @ Rtx_x
@@ -211,6 +268,19 @@ def visualize_pose(pose: list, ax):
     vect_x = Rtx @ np.array([1, 0, 0])
     vect_y = Rtx @ np.array([0, 1, 0])
     vect_z = Rtx @ np.array([0, 0, 1])
+    are_orthogonal = np.dot(vect_x, vect_y) + np.dot(vect_y, vect_z) + np.dot(vect_z, vect_x) < 1e-10
+    
+    print(
+        f"Ortogonal? {np.dot(vect_x, vect_y) + np.dot(vect_y, vect_z) + np.dot(vect_z, vect_x) < 1e-10}"
+    )
+    if not are_orthogonal:
+        print(np.dot(vect_x, vect_y))
+        print(np.dot(vect_y, vect_z))
+        print(np.dot(vect_z, vect_x))
+
+        print(vect_x)
+        print(vect_y)
+        print(vect_z)
 
     ax.quiver(x, y, z, vect_x[0], vect_x[1], vect_x[2], length=100, color="r")
     ax.quiver(x, y, z, vect_y[0], vect_y[1], vect_y[2], length=100, color="g")
@@ -220,21 +290,37 @@ def visualize_pose(pose: list, ax):
 
     return ax
 
+
 def visualize_poses_test():
     center = np.array([500, 500, 500])
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
     ax.plot([center[0]], [center[1]], [center[2]], marker="o", color="k")
+
     visualize_pose([0, 0, 0, 0, 0, 0], ax)
 
-    visualize_pose([center[0]-250, center[1]-250, center[2]-250, 90, 0, 0], ax)
+    visualize_pose([center[0] - 250, center[1] - 250, center[2] - 250, 90, 0, 0], ax)
     visualize_pose([center[0], center[1], center[2], 90, 0, 90], ax)
+    visualize_pose([center[0] - 100, center[1] - 100, center[2] - 100, 150, 0, 90], ax)
+    visualize_pose([-285.51, -648.10, 469.85, 30, 0, 72], ax) # IDK WHY IT DOES NOT 
 
     plt.show()
 
 
+def align_test():
+    target = np.array([1, 1, 1])
+    target =  target / np.linalg.norm(target)
+
+    initial = np.array([0, 1, 0])
+
+    Rz, Ry, Rx = align_vectors(initial, target, y_rotation=0, units="deg")
+    print(Rz, Ry, Rx)
+
+
 
 if __name__ == "__main__":
+    # align_test()
+    # visualize_poses_test()
     center = np.array([-200, -500, 0])
     radius = 500
     poses = generate_poses(center, radius)
@@ -243,16 +329,23 @@ if __name__ == "__main__":
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
     ax.plot([center[0]], [center[1]], [center[2]], marker="x", color="r")
-    ax.quiver(0,0,0, 1, 0, 0, length=100, color="r", linewidth=5)
-    ax.quiver(0,0,0, 0, 1, 0, length=100, color="g", linewidth=5)
-    ax.quiver(0,0,0, 0, 0, 1, length=100, color="b", linewidth=5)
+    ax.quiver(0, 0, 0, 1, 0, 0, length=100, color="r", linewidth=5)
+    ax.quiver(0, 0, 0, 0, 1, 0, length=100, color="g", linewidth=5)
+    ax.quiver(0, 0, 0, 0, 0, 1, length=100, color="b", linewidth=5)
 
     for pose in poses:
         ax.scatter(pose[0], pose[1], pose[2], marker="o")
         vector = center - np.array([pose[0], pose[1], pose[2]])
         vector = vector / np.linalg.norm(vector)
         ax.quiver(
-            pose[0], pose[1], pose[2], vector[0], vector[1], vector[2], length=100, color="k"
+            pose[0],
+            pose[1],
+            pose[2],
+            vector[0],
+            vector[1],
+            vector[2],
+            length=100,
+            color="k",
         )
         nice_print(pose)
         ax = visualize_pose(pose, ax)

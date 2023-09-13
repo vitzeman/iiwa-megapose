@@ -37,6 +37,8 @@ for d in devices:
 from pose_generator.pose_gen import generate_poses
 from camera.basler_camera import BaslerCamera
 
+CAMERA_CONNECTED = False
+
 if __name__ == "__main__":
     client = Client("opc.tcp://localhost:5000/")
     client.connect()
@@ -77,10 +79,10 @@ if __name__ == "__main__":
     # handler.move_to_position_with_points(
     #     input, X=-200.0, Y=-500.0, Z=500.0, RA=90, RB=0, RC=90
     # )
-
-    cam = BaslerCamera(save_location="images")
-    cam.connect()
-    cam.adjust_camera()
+    if CAMERA_CONNECTED:
+        cam = BaslerCamera(save_location="images")
+        cam.connec
+        cam.adjust_camera()
 
     
 
@@ -96,7 +98,8 @@ if __name__ == "__main__":
         if operation:
             success_count += 1
             print(f"O:{operation}")
-            cam.save_current_image()
+            if CAMERA_CONNECTED:
+                cam.save_current_image()
 
         print("Pushing new pose")
 
