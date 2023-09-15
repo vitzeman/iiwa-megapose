@@ -288,6 +288,8 @@ def align_vectors2(target_vector, z_rotation, units="deg") -> tuple:
     if units == "deg":
         z_rotation = np.deg2rad(z_rotation)
 
+    x_axis = np.array([1, 0, 0])
+    y_axis = np.array([0, 1, 0])
     z_axis = np.array([0, 0, 1])
 
     print("AT START:")
@@ -297,6 +299,10 @@ def align_vectors2(target_vector, z_rotation, units="deg") -> tuple:
     # Rotate the target vector around z axis
     Rz = rotation_matrix_z(z_rotation, units="rad")
 
+    x_axis = Rz @ x_axis.reshape(3, 1)
+    x_axis = x_axis.flatten()
+    y_axis = Rz @ y_axis.reshape(3, 1)
+    y_axis = y_axis.flatten()
     z_axis = Rz @ z_axis.reshape(3, 1)
     z_axis = z_axis.flatten()
 
@@ -304,21 +310,37 @@ def align_vectors2(target_vector, z_rotation, units="deg") -> tuple:
     print("target_vector", target_vector)
     print("z_axis", z_axis)
 
-    target_vector_xz = np.array([target_vector[0], 0, target_vector[2]])
-    target_vector_xz = target_vector_xz / np.linalg.norm(target_vector_xz)
+    # TODO: CHECK IF the Y_new Z_new and Target are in the same plane
+    # If not rotate around y axis so that they are 
+    # Y_new will be static
+    # Z_new will be rotated around Y_new
+    # Target will be static
 
-    z_axis_xz = np.array([z_axis[0], 0, z_axis[2]])
-    z_axis_xz = z_axis_xz / np.linalg.norm(z_axis_xz)
+    same_plane = np.dot(y_axis,  np.cross(z_axis, target_vector)) < 1e-10
+    print(f"Same plane? {same_plane}")
+    if not same_plane:
+        # Compute the angle to align z axis to the plane given by target and y axis
 
-    print("target_vector_xz", target_vector_xz)
-    print("z_axis_xz", z_axis_xz)
+        target_vector_xz = np.array([target_vector[0], 0, target_vector[2]])
+        target_vector_xz = target_vector_xz / np.linalg.norm(target_vector_xz)
 
-    y_rotation = directed_angle(z_axis_xz, target_vector_xz)
-    # y_rotation = directed_angle(z_axis, target_vector)
-    Ry = rotation_matrix_y(y_rotation, units="rad")
+        z_axis_xz = np.array([z_axis[0], 0, z_axis[2]])
+        z_axis_xz = z_axis_xz / np.linalg.norm(z_axis_xz)
 
-    z_axis = Ry @ z_axis.reshape(3, 1)   
-    z_axis = z_axis.flatten()
+        print("target_vector_xz", target_vector_xz)
+        print("z_axis_xz", z_axis_xz)
+
+        y_rotation = directed_angle(z_axis_xz, target_vector_xz)
+        # y_rotation = directed_angle(z_axis, target_vector)
+        Ry = rotation_matrix_y(y_rotation, units="rad")
+
+        z_axis = Ry @ z_axis.reshape(3, 1)   
+        z_axis = z_axis.flatten()
+
+    else: 
+        y_rotation = 0
+
+
 
     print(f"AFTER Y ROTATION: {np.rad2deg(y_rotation)}")
     print("target_vector", target_vector)
