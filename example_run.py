@@ -34,7 +34,7 @@ for d in devices:
 # converter = pylon.ImageFormatConverter()
 # converter.OutputPixelFormat = pylon.PixelType_BGR8packed
 
-from pose_generator.pose_gen import generate_poses
+from pose_generator.pose_gen import generate_poses, nice_pose_print
 from camera.basler_camera import BaslerCamera
 
 CAMERA_CONNECTED = False
@@ -89,9 +89,11 @@ if __name__ == "__main__":
     poses = generate_poses(np.array([-200, -500, 0]), 500)
     success_count = 0
     for pose in poses:
+        nice_pose_print(pose)
         X, Y, Z, RA, RB, RC = pose
+        
         handler.move_to_position_with_points(
-            input, X=X, Y=Y, Z=Z, RA=90, RB=0, RC=90
+            input, X=X, Y=Y, Z=Z, RA=RA, RB=RB, RC=RC
         )
         operation = handler.check_point_fail_pass(input)
         print(operation)
@@ -103,10 +105,14 @@ if __name__ == "__main__":
 
         print("Pushing new pose")
 
-    # transf, RX, RY, RZ, RA, RB, RC = handler.get_current_pos_base(input)
+    transf, RX, RY, RZ, RA, RB, RC = handler.get_current_pos_base(input)
     handler.move_to_position_with_points(
-        input, X=-200.0, Y=-500.0, Z=400.0, RA=90, RB=0, RC=90
+        input, X=-200.0, Y=-500.0, Z=400.0, RA=-90, RB=0, RC=180
     )
+    operational = handler.check_point_fail_pass(input)
+    # handler.move_to_position_with_points(
+    #     input, X=-200.0, Y=-500.0, Z=300.0, RA=-90, RB=0, RC=180
+    # )
     print("Finished moving")
-    print(f"Success count: {success_count}/{len(poses)}")
+    # print(f"Success count: {success_count}/{len(poses)}")
     client.disconnect()
