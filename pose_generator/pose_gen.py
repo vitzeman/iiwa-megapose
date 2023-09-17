@@ -145,18 +145,18 @@ def nice_pose_print(pose: list) -> None:
         f"x: {x:3.2f},\t y: {y:3.2f},\t z: {z:3.2f},\t Rz: {Rz:3.2f},\t Ry: {Ry:3.2f},\t Rx: {Rx:3.2f}"
     )
 
+
 def angle_to_range_180(*angles: float) -> float:
     """Converts the given angles to the range [-180, 180]
 
     Args:
         angles (float): The angle to convert
-    
+
     Returns:
         float: The converted angle
-    """    
+    """
     converted = []
     for angle in angles:
-
         if angle > 180:
             angle = angle - 360
 
@@ -168,215 +168,153 @@ def angle_to_range_180(*angles: float) -> float:
     return converted
 
 
-def directed_angle(v1, v2):
-    """Calculates the directed angle between two vectors
+def directed_angle(source_vector: np.ndarray, target_vector: np.ndarray, axis) -> float:
+    """Calculates the angle from source_vector to target_vector around axis
+    ONLY WORKS FOR VECTORS WHICH ARE ALREADY IN THE PLANE DEFINED BY AXIS
 
     Args:
-        v1 (np.ndarray): The first vector
-        v2 (np.ndarray): The second vector
+        source_vector (np.ndarray): _description_
+        target_vector (np.ndarray): _description_
+        axis (np.ndarray): Axis to rotate around
 
-    returns:
-        float: The directed angle between the two vectors in radians
-    """    
-    v1 = v1 / np.linalg.norm(v1)
-    v2 = v2 / np.linalg.norm(v2)
+    Returns:
+        float: np.ndarray
+    """
+    # Check if plane given by source and target is the same as the plane defined by axis
+    # if np.dot(source_vector, axis) > 1e-10 or np.dot(target_vector, axis) > 1e-10:
+    #     raise ValueError(
+    #         "source and target vectors must be in the plane defined by axis"
+    #     )
 
-    angle = np.arctan2(np.linalg.norm(np.cross(v1, v2)), np.dot(v1, v2))
+    source_vector = source_vector / np.linalg.norm(source_vector)
+    target_vector = target_vector / np.linalg.norm(target_vector)
+
+    angle = np.arctan2(
+        np.linalg.norm(np.cross(source_vector, target_vector)),
+        np.dot(source_vector, target_vector),
+    )
+
+    # Check if the angle should be positive or negative
+    triple_dot_product = np.dot(source_vector, np.cross(target_vector, axis))
+    if triple_dot_product < 0:
+        angle = -angle
+    # print(angle)
     return angle
 
 
-def align_vectors(v_i, v_t, z_rotation: float = 0.0, units="deg") -> tuple:
-    """Aligns the vector v_i to v_t by rotation zyx, wheen y rotation can be given
+def vectors_in_same_plane(v1, v2, v3):
+    """Checks if the given vectors are in the same plane
 
     Args:
-        v_i (_type_): _description_
-        v_t (_type_): _description_
-        z_rotation (float, optional): _description_. Defaults to 0.0.
-        units (str, optional): Units used for the . Defaults to "deg".
+        v1 (_type_): _description_
+        v2 (_type_): _description_
+        v3 (_type_): _description_
+    """
+    ret = np.abs(np.dot(v1, np.cross(v2, v3))) < 1e-14
+    if not ret:
+        print(np.dot(v1, np.cross(v2, v3)))
+
+    return ret
+
+
+def orthogonal_projection(vector: np.ndarray, basis: list) -> np.ndarray:
+    """Projects the given vector onto the plane defined by the given basis
+
+    Args:
+        vector (np.ndarray): Vector to project
+        basis (list): List of vectors defining the plane to project onto
 
     Returns:
-        tuple: (Rz, Ry, Rx) euler angles in radians
+        np.ndarray: The projected vector
     """
-    # print("AT START:")
-    # print("v_i", v_i)
-    # print("v_t", v_t)
+    if len(basis) != 2:
+        raise ValueError("basis must be a list of 2 vectors")
+    if len(vector) != 3:
+        raise ValueError("vector must be a 3D vector")
+
+    if np.dot(basis[0], basis[1]) > 1e-10:
+        raise ValueError("basis vectors must be orthogonal")
+
+    b1 = basis[0]
+    b2 = basis[1]
+
+    b1 = b1 / np.linalg.norm(b1)
+    b2 = b2 / np.linalg.norm(b2)
+
+    projected_vector = (
+        np.dot(vector, b1) / np.dot(b1, b1) * b1
+        + np.dot(vector, b2) / np.dot(b2, b2) * b2
+    )
+
+    check_same_plane = np.dot(projected_vector, np.cross(b1, b2)) < 1e-10
+    if not check_same_plane:
+        raise ValueError("The projected vector is not in the same plane as the basis")
+    return projected_vector
+
+
+def align_vectors3(
+    target_vector, z_rotation, units="deg", ax=None, location=None
+) -> tuple:
     if units not in ["deg", "rad"]:
         raise ValueError("units must be 'deg' or 'rad'")
-    pass
 
     if units == "deg":
         z_rotation = np.deg2rad(z_rotation)
-
-    vi_orig = v_i.copy()
-    Rz, Ry, Rx = 0, 0, 0
-
-    vi_xy = np.array([v_i[0], v_i[1], 0])
-    vt_xy = np.array([v_t[0], v_t[1], 0])
-
-    vi_xy_norm = np.linalg.norm(vi_xy)
-    vt_xy_norm = np.linalg.norm(vt_xy)
-
-    if vi_xy_norm == 0 or vt_xy_norm == 0:
-        # print(f"vi_xy_norm: {vi_xy_norm}, vt_xy_norm: {vt_xy_norm}")
-        Rz = np.deg2rad(-90)
-    else:
-        vi_xy = vi_xy / vi_xy_norm
-        vt_xy = vt_xy / vt_xy_norm
-        #Directed angle between vectors
-        Rz = directed_angle(vi_xy, vt_xy)
-
-    # print("Z rotation", np.rad2deg(Rz))
-
-    Rtx_z = rotation_matrix_z(Rz, units="rad")
-    v_i = Rtx_z @ v_i.reshape(3, 1)
-    # print(v_i, v_t)
-    v_i = v_i.flatten()
-    # Rotation around y axis
-    vi_xz = np.array([v_i[0], 0, v_i[2]])
-    vt_xz = np.array([v_t[0], 0, v_t[2]])
-
-    vi_xz_norm = np.linalg.norm(vi_xz)
-    vt_xz_norm = np.linalg.norm(vt_xz)
-
-    if vi_xz_norm == 0 or vt_xz_norm == 0:
-        # print(f"vi_xz_norm: {vi_xz_norm}, vt_xz_norm: {vt_xz_norm}")
-        Ry = np.deg2rad(0)
-    else:
-        vi_xz = vi_xz / vi_xz_norm
-        vt_xz = vt_xz / vt_xz_norm
-
-        Ry =  directed_angle(vi_xz, vt_xz)
-
-    # print("Y rotation", np.rad2deg(Ry))
-    Rtx_y = rotation_matrix_y(Ry, units="rad")
-    v_i = Rtx_y @ v_i.reshape(3, 1)
-    # print(v_i, v_t)
-    v_i = v_i.flatten()
-    # Rotation around x axis
-    vi_yz = np.array([0, v_i[1], v_i[2]])
-    vt_yz = np.array([0, v_t[1], v_t[2]])
-
-    vi_yz_norm = np.linalg.norm(vi_yz)
-    vt_yz_norm = np.linalg.norm(vt_yz)
-
-    if vi_yz_norm == 0 or vt_yz_norm == 0:
-        # print(f"vi_yz_norm: {vi_yz_norm}, vt_yz_norm: {vt_yz_norm}")
-        Rx = np.deg2rad(0)
-    else:
-        vi_yz = vi_yz / vi_yz_norm
-        vt_yz = vt_yz / vt_yz_norm
-
-        Rx = directed_angle(vi_yz, vt_yz)
-
-
-    # print("X rotation", np.rad2deg(Rx))
-    Rtx_x = rotation_matrix_x(Rx, units="rad")
-    v_i = Rtx_x @ v_i.reshape(3, 1)
-    v_i = v_i.flatten()
-    # Check if the vectors are aligned
-
-    # print("v_i", v_i)
-    # print("v_t", v_t)
-    # print("vi_orig", vi_orig)   
-
-    return Rz, Ry, Rx
-
-def align_vectors2(target_vector, z_rotation, units="deg") -> tuple:
-    if units not in ["deg", "rad"]:
-        raise ValueError("units must be 'deg' or 'rad'")
-    
-    if units == "deg":
-        z_rotation = np.deg2rad(z_rotation)
-
-    x_axis = np.array([1, 0, 0])
-    y_axis = np.array([0, 1, 0])
-    z_axis = np.array([0, 0, 1])
-
-    print("AT START:")
     print("target_vector", target_vector)
-    print("z_axis", z_axis)
 
-    # Rotate the target vector around z axis
-    Rz = rotation_matrix_z(z_rotation, units="rad")
+    # Base vectors
+    base_x = np.array([1, 0, 0])
+    base_y = np.array([0, 1, 0])
+    base_z = np.array([0, 0, 1])
 
-    x_axis = Rz @ x_axis.reshape(3, 1)
-    x_axis = x_axis.flatten()
-    y_axis = Rz @ y_axis.reshape(3, 1)
-    y_axis = y_axis.flatten()
-    z_axis = Rz @ z_axis.reshape(3, 1)
-    z_axis = z_axis.flatten()
+    # Z rotation is given by the user
+    Rtx_z = rotation_matrix_z(z_rotation, units="rad")
 
-    print(f"AFTER Z ROTATION: {np.rad2deg(z_rotation)}")
-    print("target_vector", target_vector)
-    print("z_axis", z_axis)
+    # Rotate the base vectors
+    base_x = Rtx_z @ base_x.reshape(3, 1)
+    base_x = base_x.flatten()
+    base_y = Rtx_z @ base_y.reshape(3, 1)
+    base_y = base_y.flatten()
+    base_z = Rtx_z @ base_z.reshape(3, 1)
+    base_z = base_z.flatten()
 
-    # TODO: CHECK IF the Y_new Z_new and Target are in the same plane
-    # If not rotate around y axis so that they are 
-    # Y_new will be static
-    # Z_new will be rotated around Y_new
-    # Target will be static
+    if vectors_in_same_plane(base_y, base_z, target_vector):
+        print("Vectors in same plane")
+        print("base_y", base_y)
+        print("base_z", base_z)
+        print("target_vector", target_vector)
+        print(np.dot(base_y, np.cross(base_z, target_vector)))
 
-    same_plane = np.dot(y_axis,  np.cross(z_axis, target_vector)) < 1e-10
-    print(f"Same plane? {same_plane}")
-    if not same_plane:
-        # Compute the angle to align z axis to the plane given by target and y axis
-
-        target_vector_xz = np.array([target_vector[0], 0, target_vector[2]])
-        target_vector_xz = target_vector_xz / np.linalg.norm(target_vector_xz)
-
-        z_axis_xz = np.array([z_axis[0], 0, z_axis[2]])
-        z_axis_xz = z_axis_xz / np.linalg.norm(z_axis_xz)
-
-        print("target_vector_xz", target_vector_xz)
-        print("z_axis_xz", z_axis_xz)
-
-        y_rotation = directed_angle(z_axis_xz, target_vector_xz)
-        # y_rotation = directed_angle(z_axis, target_vector)
-        Ry = rotation_matrix_y(y_rotation, units="rad")
-
-        z_axis = Ry @ z_axis.reshape(3, 1)   
-        z_axis = z_axis.flatten()
-
-    else: 
         y_rotation = 0
+    else:
+        target_projection_bxbz = orthogonal_projection(target_vector, [base_x, base_z])
+        y_rotation = directed_angle(base_z, target_projection_bxbz, base_y)
 
+    # print(y_rotation)
+    Rtx_y = rotation_matrix_y(y_rotation, units="rad")
 
+    base_x = np.array([1, 0, 0])
+    base_y = np.array([0, 1, 0])
+    base_z = np.array([0, 0, 1])
+    # Rotate the base vectors
+    base_x = Rtx_z @ Rtx_y @ base_x.reshape(3, 1)
+    base_x = base_x.flatten()
+    base_y = Rtx_z @ Rtx_y @ base_y.reshape(3, 1)
+    base_y = base_y.flatten()
+    base_z = Rtx_z @ Rtx_y @ base_z.reshape(3, 1)
+    base_z = base_z.flatten()
 
-    print(f"AFTER Y ROTATION: {np.rad2deg(y_rotation)}")
-    print("target_vector", target_vector)
-    print("z_axis", z_axis)
+    target_projection_bybz = orthogonal_projection(target_vector, [base_y, base_z])
+    x_rotation = directed_angle(base_z, target_projection_bybz, base_x)
 
-    target_vector_yz = np.array([0, target_vector[1], target_vector[2]])
-    target_vector_yz = target_vector_yz / np.linalg.norm(target_vector_yz)
-
-    z_axis_yz = np.array([0, z_axis[1], z_axis[2]])
-    z_axis_yz = z_axis_yz / np.linalg.norm(z_axis_yz)
-
-    print("target_vector_yz", target_vector_yz)
-    print("z_axis_yz", z_axis_yz)
-
-    x_rotation = directed_angle(z_axis_yz, target_vector_yz)
-    # x_rotation = directed_angle(z_axis, target_vector)
-    Rx = rotation_matrix_x(x_rotation, units="rad")
-
-    z_axis = Rx @ z_axis.reshape(3, 1)
-
-    z_axis = z_axis.flatten()
-
-    print(f"AFTER X ROTATION: {np.rad2deg(x_rotation)}")
-    print("target_vector", target_vector)
-    print("z_axis", z_axis)
-
-    print("")
     return z_rotation, y_rotation, x_rotation
 
 
-
-
-def generate_poses(center, radius):
+def generate_poses(center, radius, ax=None):
     poses = []
-    theta_gen = range(0, 21, 20)
+    theta_gen = range(0, 181, 20)
     should_break = False
+    i = 1
     for theta in tqdm(theta_gen):
         theta = np.deg2rad(theta)
         if should_break:
@@ -388,22 +326,26 @@ def generate_poses(center, radius):
             y = center[1] + radius * np.sin(theta) * np.sin(phi)
             z = center[2] + radius * np.cos(theta)
 
-            if x > 0 or x < -500:
-                continue
+            # if x > 0 or x < -500:
+            #     continue
 
-            if y > 0 or y < -1000:
-                continue
+            # if y > 0 or y < -1000:
+            #     continue
+
+            print(f"Pose {i}:")
+            i += 1
             center = np.array(center)
             look_vector = center - np.array([x, y, z])
             look_vector = look_vector / np.linalg.norm(look_vector)
 
             z_axis = np.array([0, 0, 1])
             # print(type(look_vector))
-            # Rz, Ry, Rx = align_vectors(z_axis, look_vector)
-            Rz, Ry, Rx = align_vectors2(look_vector, -90, units="deg")
+            Rz, Ry, Rx = align_vectors3(look_vector, -90, ax=ax, location=(x, y, z))
+            # Rz, Ry, Rx = rotation_trough_matrix(z_axis, look_vector)
+
             Rz, Ry, Rx = np.rad2deg([Rz, Ry, Rx])
 
-            # Rz, Ry, Rx = angle_to_range_180(Rz, Ry, Rx)
+            Rz, Ry, Rx = angle_to_range_180(Rz, Ry, Rx)
 
             if theta == 0:
                 poses.append([x, y, z, Rz, Ry, Rx])
@@ -411,12 +353,12 @@ def generate_poses(center, radius):
                 break
 
             poses.append([x, y, z, Rz, Ry, Rx])
-            
 
     return poses
 
 
 def visualize_pose(pose: list, ax):
+    nice_pose_print(pose, end=" ")
     x, y, z, Rz, Ry, Rx = pose
     Rtx_x = rotation_matrix_x(Rx, units="deg")
     Rtx_y = rotation_matrix_y(Ry, units="deg")
@@ -432,15 +374,15 @@ def visualize_pose(pose: list, ax):
     vect_x = Rtx @ np.array([1, 0, 0]).reshape(3, 1)
     vect_y = Rtx @ np.array([0, 1, 0]).reshape(3, 1)
     vect_z = Rtx @ np.array([0, 0, 1]).reshape(3, 1)
-    
+
     vect_x = vect_x.flatten()
     vect_y = vect_y.flatten()
     vect_z = vect_z.flatten()
 
-    are_orthogonal = np.dot(vect_x, vect_y) + np.dot(vect_y, vect_z) + np.dot(vect_z, vect_x) < 1e-10
-    print(
-        f"Ortogonal? {are_orthogonal}"
+    are_orthogonal = (
+        np.dot(vect_x, vect_y) + np.dot(vect_y, vect_z) + np.dot(vect_z, vect_x) < 1e-10
     )
+    print(f"Ortogonal? {are_orthogonal}")
 
     if not are_orthogonal:
         print(np.dot(vect_x, vect_y))
@@ -454,7 +396,6 @@ def visualize_pose(pose: list, ax):
     ax.quiver(x, y, z, vect_x[0], vect_x[1], vect_x[2], length=100, color="r")
     ax.quiver(x, y, z, vect_y[0], vect_y[1], vect_y[2], length=100, color="g")
     ax.quiver(x, y, z, vect_z[0], vect_z[1], vect_z[2], length=100, color="b")
-    # CAMERA LOOKS IN DIRECTION OF NEGATIVE Y AXIS
     return ax
 
 
@@ -469,45 +410,15 @@ def visualize_poses_test():
     visualize_pose([center[0] - 250, center[1] - 250, center[2] - 250, 90, 0, 0], ax)
     visualize_pose([center[0], center[1], center[2], 90, 0, 90], ax)
     visualize_pose([center[0] - 100, center[1] - 100, center[2] - 100, 150, 0, 90], ax)
-    visualize_pose([-285.51, -648.10, 469.85, 30, 0, 72], ax) # IDK WHY IT DOES NOT 
+    visualize_pose([-285.51, -648.10, 469.85, 30, 0, 72], ax)  # IDK WHY IT DOES NOT
 
     plt.show()
 
 
-def align_test():
-    target = np.array([1, 1, 1])
-    target =  target / np.linalg.norm(target)
-
-    initial = np.array([0, 1, 0])
-
-    Rz, Ry, Rx = align_vectors(initial, target, y_rotation=0, units="deg")
-    print(Rz, Ry, Rx)
-
-
-
 if __name__ == "__main__":
-    # align_test()
-    # vect_1 = np.array([1, 0, 0])
-    # vect_2 = np.array([-1, 1, 0])
-
-    # angle = directed_angle(vect_1, vect_2)
-    # print(np.rad2deg(angle))
-    # Rtx_z = rotation_matrix_z(angle, units="rad")
-
-
-    # Rtx = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
-    # print(Rtx)
-    # # vect_1 = Rtx @ vect_1.reshape(2, 1)
-    # vect_1 = Rtx_z @ vect_1.reshape(3, 1)
-    # print(vect_1.flatten())
-    # print(vect_2)
-
-    # visualize_poses_test()
     center = np.array([-200, -500, 0])
     radius = 500
-    poses = generate_poses(center, radius)
 
-    # Plot the xyz poses
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
     ax.plot([center[0]], [center[1]], [center[2]], marker="x", color="r")
@@ -515,6 +426,7 @@ if __name__ == "__main__":
     ax.quiver(0, 0, 0, 0, 1, 0, length=100, color="g", linewidth=5)
     ax.quiver(0, 0, 0, 0, 0, 1, length=100, color="b", linewidth=5)
 
+    poses = generate_poses(center, radius, ax)
     for pose in poses:
         ax.scatter(pose[0], pose[1], pose[2], marker="o")
         vector = center - np.array([pose[0], pose[1], pose[2]])
