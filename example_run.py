@@ -89,6 +89,7 @@ if __name__ == "__main__":
     poses = generate_poses(np.array([-200, -500, 0]), 500)
     success_count = 0
     for pose in poses:
+        print("Sending to new pose:", end="\t")
         nice_pose_print(pose)
         X, Y, Z, RA, RB, RC = pose
         
@@ -100,11 +101,15 @@ if __name__ == "__main__":
         if operation:
             success_count += 1
             print(f"O:{operation}")
+
             if CAMERA_CONNECTED:
+                print("saving image")
                 cam.save_current_image()
 
         print("Pushing new pose")
 
+
+    print("Finished moving - sending to prep position")
     transf, RX, RY, RZ, RA, RB, RC = handler.get_current_pos_base(input)
     handler.move_to_position_with_points(
         input, X=-200.0, Y=-500.0, Z=400.0, RA=-90, RB=0, RC=180
@@ -116,3 +121,6 @@ if __name__ == "__main__":
     print("Finished moving")
     # print(f"Success count: {success_count}/{len(poses)}")
     client.disconnect()
+
+    if CAMERA_CONNECTED:
+        cam.disconnect()

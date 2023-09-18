@@ -1,3 +1,6 @@
+import json
+import os
+
 from tqdm import tqdm
 import numpy as np
 
@@ -202,17 +205,20 @@ def directed_angle(source_vector: np.ndarray, target_vector: np.ndarray, axis) -
     return angle
 
 
-def vectors_in_same_plane(v1, v2, v3):
+def vectors_in_same_plane(
+    v1: np.ndarray, v2: np.ndarray, v3: np.ndarray, tol: float = 1e-14
+):
     """Checks if the given vectors are in the same plane
 
     Args:
-        v1 (_type_): _description_
-        v2 (_type_): _description_
-        v3 (_type_): _description_
+        v1  np.ndarray): First vector
+        v2 (np.ndarray): Second vector
+        v3 (np.ndarray): Third vector
+        to
     """
     ret = np.abs(np.dot(v1, np.cross(v2, v3))) < 1e-14
-    if not ret:
-        print(np.dot(v1, np.cross(v2, v3)))
+    # if not ret:
+        # print(np.dot(v1, np.cross(v2, v3)))
 
     return ret
 
@@ -252,7 +258,7 @@ def orthogonal_projection(vector: np.ndarray, basis: list) -> np.ndarray:
     return projected_vector
 
 
-def align_vectors3(
+def align_vectors(
     target_vector, z_rotation, units="deg", ax=None, location=None
 ) -> tuple:
     if units not in ["deg", "rad"]:
@@ -260,7 +266,7 @@ def align_vectors3(
 
     if units == "deg":
         z_rotation = np.deg2rad(z_rotation)
-    print("target_vector", target_vector)
+    # print("target_vector", target_vector)
 
     # Base vectors
     base_x = np.array([1, 0, 0])
@@ -279,12 +285,11 @@ def align_vectors3(
     base_z = base_z.flatten()
 
     if vectors_in_same_plane(base_y, base_z, target_vector):
-        print("Vectors in same plane")
-        print("base_y", base_y)
-        print("base_z", base_z)
-        print("target_vector", target_vector)
-        print(np.dot(base_y, np.cross(base_z, target_vector)))
-
+        # print("Vectors in same plane")
+        # print("base_y", base_y)
+        # print("base_z", base_z)
+        # print("target_vector", target_vector)
+        # print(np.dot(base_y, np.cross(base_z, target_vector)))
         y_rotation = 0
     else:
         target_projection_bxbz = orthogonal_projection(target_vector, [base_x, base_z])
@@ -310,16 +315,32 @@ def align_vectors3(
     return z_rotation, y_rotation, x_rotation
 
 
-def generate_poses(center, radius, ax=None):
+def generate_poses(
+    center: np.ndarray,
+    radius: float,
+    theta_gen: range = range(0, 90, 20),
+    phi_gen: range = range(0, 360, 60),
+):
+    """Generates poses on a sphere around the given center with the given radius
+
+
+    Args:
+        center (np.ndarray): Center of the spehere where camera should look at
+        radius (float): Radius of the sphere
+        theta_gen (range, optional): Angles to generate poses. The angles are defined as angle from z axis. Defaults to range(0,90,20).
+        phi_gen (range, optional): Angles to generate poses. The angles are defiend as angle from x axis. Defaults to (0, 360,60).
+
+    Returns:
+        _type_: _description_
+    """
     poses = []
-    theta_gen = range(0, 181, 20)
     should_break = False
     i = 1
     for theta in tqdm(theta_gen):
         theta = np.deg2rad(theta)
         if should_break:
             break
-        for phi in range(0, 360, 60):
+        for phi in phi_gen:
             # Coordinates
             phi = np.deg2rad(phi)
             x = center[0] + radius * np.sin(theta) * np.cos(phi)
@@ -332,22 +353,22 @@ def generate_poses(center, radius, ax=None):
             # if y > 0 or y < -1000:
             #     continue
 
-            print(f"Pose {i}:")
+            # print(f"Pose {i}:")
             i += 1
             center = np.array(center)
             look_vector = center - np.array([x, y, z])
             look_vector = look_vector / np.linalg.norm(look_vector)
 
             z_axis = np.array([0, 0, 1])
-            # print(type(look_vector))
-            Rz, Ry, Rx = align_vectors3(look_vector, -90, ax=ax, location=(x, y, z))
-            # Rz, Ry, Rx = rotation_trough_matrix(z_axis, look_vector)
+            Rz, Ry, Rx = align_vectors(look_vector, -90, location=(x, y, z))
 
             Rz, Ry, Rx = np.rad2deg([Rz, Ry, Rx])
 
             Rz, Ry, Rx = angle_to_range_180(Rz, Ry, Rx)
 
-            if theta == 0:
+            if (
+                theta == 0
+            ):  # Only add one pose for theta = 0, that is looking straight down
                 poses.append([x, y, z, Rz, Ry, Rx])
                 should_break = False
                 break
@@ -357,8 +378,34 @@ def generate_poses(center, radius, ax=None):
     return poses
 
 
+def save_poses_to_json(poses: list, filename: str):
+    """Saves the given poses to a json file
+
+    Args:
+        poses (list): List of poses to save
+        filename (str): Filename to save to
+    """    
+    dictionary = {}
+    for e,pose in enumerate(poses):
+        X, Y, Z, RA, RB, RC = pose
+        pose = {
+            "X": X,
+            "Y": Y,
+            "Z": Z,
+            "RA": RA,
+            "RB": RB,
+            "RC": RC,
+        }
+        dictionary[str(e)] = pose
+
+    with open(filename, "w") as f:
+        json.dump(dictionary, f, indent=2)
+
+    return None
+
+    
 def visualize_pose(pose: list, ax):
-    nice_pose_print(pose, end=" ")
+    nice_pose_print(pose)
     x, y, z, Rz, Ry, Rx = pose
     Rtx_x = rotation_matrix_x(Rx, units="deg")
     Rtx_y = rotation_matrix_y(Ry, units="deg")
@@ -382,9 +429,10 @@ def visualize_pose(pose: list, ax):
     are_orthogonal = (
         np.dot(vect_x, vect_y) + np.dot(vect_y, vect_z) + np.dot(vect_z, vect_x) < 1e-10
     )
-    print(f"Ortogonal? {are_orthogonal}")
+    # print(f"Ortogonal? {are_orthogonal}")
 
     if not are_orthogonal:
+        print("Transformed base vectors are not orthogonal")
         print(np.dot(vect_x, vect_y))
         print(np.dot(vect_y, vect_z))
         print(np.dot(vect_z, vect_x))
@@ -398,23 +446,6 @@ def visualize_pose(pose: list, ax):
     ax.quiver(x, y, z, vect_z[0], vect_z[1], vect_z[2], length=100, color="b")
     return ax
 
-
-def visualize_poses_test():
-    center = np.array([500, 500, 500])
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection="3d")
-    ax.plot([center[0]], [center[1]], [center[2]], marker="o", color="k")
-
-    visualize_pose([0, 0, 0, 0, 0, 0], ax)
-
-    visualize_pose([center[0] - 250, center[1] - 250, center[2] - 250, 90, 0, 0], ax)
-    visualize_pose([center[0], center[1], center[2], 90, 0, 90], ax)
-    visualize_pose([center[0] - 100, center[1] - 100, center[2] - 100, 150, 0, 90], ax)
-    visualize_pose([-285.51, -648.10, 469.85, 30, 0, 72], ax)  # IDK WHY IT DOES NOT
-
-    plt.show()
-
-
 if __name__ == "__main__":
     center = np.array([-200, -500, 0])
     radius = 500
@@ -426,7 +457,7 @@ if __name__ == "__main__":
     ax.quiver(0, 0, 0, 0, 1, 0, length=100, color="g", linewidth=5)
     ax.quiver(0, 0, 0, 0, 0, 1, length=100, color="b", linewidth=5)
 
-    poses = generate_poses(center, radius, ax)
+    poses = generate_poses(center, radius)
     for pose in poses:
         ax.scatter(pose[0], pose[1], pose[2], marker="o")
         vector = center - np.array([pose[0], pose[1], pose[2]])
@@ -441,7 +472,6 @@ if __name__ == "__main__":
             length=100,
             color="k",
         )
-        nice_pose_print(pose)
         ax = visualize_pose(pose, ax)
 
     plt.show()
