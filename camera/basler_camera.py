@@ -207,7 +207,7 @@ class BaslerCamera:
             return None
 
         if name == "":
-            name = f"{datetime.now().isoformat()}.jpg"
+            name = f"{datetime.now().isoformat()}.png"
 
         path_to_save = os.path.join(self.save_location, name)
         cv2.imwrite(path_to_save, image)

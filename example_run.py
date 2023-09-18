@@ -9,7 +9,7 @@ import argparse
 import numpy as np
 import json
 from utils.robot_motion import path, SubHandler
-
+from matplotlib import pyplot as plt
 
 # get instance of the pylon TransportLayerFactory
 tlf = pylon.TlFactory.GetInstance()
@@ -34,10 +34,10 @@ for d in devices:
 # converter = pylon.ImageFormatConverter()
 # converter.OutputPixelFormat = pylon.PixelType_BGR8packed
 
-from pose_generator.pose_gen import generate_poses, nice_pose_print
+from pose_generator.pose_gen import generate_poses, nice_pose_print, visualize_pose
 from camera.basler_camera import BaslerCamera
 
-CAMERA_CONNECTED = False
+CAMERA_CONNECTED = True
 
 if __name__ == "__main__":
     client = Client("opc.tcp://localhost:5000/")
@@ -79,40 +79,90 @@ if __name__ == "__main__":
     # handler.move_to_position_with_points(
     #     input, X=-200.0, Y=-500.0, Z=500.0, RA=90, RB=0, RC=90
     # )
+    calibration_num = "calibration4"
     if CAMERA_CONNECTED:
-        cam = BaslerCamera(save_location="images")
-        cam.connec
+        cam = BaslerCamera(
+            save_location=os.path.join("camera", calibration_num, "images")
+        )
+        cam.connect()
         cam.adjust_camera()
 
-    
+    center = [-50, -750, 0]
+    poses = generate_poses(
+        np.array(center), 500, Rz=-90, phi_gen=range(0,360,30), y_limits=(-760, -200), z_limits=(100, 500)
+    )
 
-    poses = generate_poses(np.array([-200, -500, 0]), 500)
-    success_count = 0
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.plot([center[0]], [center[1]], [center[2]], marker="x", color="r")
+    ax.quiver(0, 0, 0, 1, 0, 0, length=100, color="r", linewidth=5)
+    ax.quiver(0, 0, 0, 0, 1, 0, length=100, color="g", linewidth=5)
+    ax.quiver(0, 0, 0, 0, 0, 1, length=100, color="b", linewidth=5)
+
     for pose in poses:
+        ax.scatter(pose[0], pose[1], pose[2], marker="o")
+        vector = center - np.array([pose[0], pose[1], pose[2]])
+        vector = vector / np.linalg.norm(vector)
+        ax.quiver(
+            pose[0],
+            pose[1],
+            pose[2],
+            vector[0],
+            vector[1],
+            vector[2],
+            length=100,
+            color="k",
+        )
+        ax = visualize_pose(pose, ax)
+    # plt.show()
+    plt.savefig(os.path.join("camera", calibration_num, "poses.png"))
+
+    poses_dict = {"generated_poses": poses}
+    reached_poses = []
+
+    success_count = 0
+    for e, pose in enumerate(poses):
         print("Sending to new pose:", end="\t")
         nice_pose_print(pose)
-        X, Y, Z, RA, RB, RC = pose
-        
+        X, Y, Z, RZ, RY, RX = pose
         handler.move_to_position_with_points(
-            input, X=X, Y=Y, Z=Z, RA=RA, RB=RB, RC=RC
+            input, X=X, Y=Y, Z=Z, RA=RZ, RB=RY, RC=RX
         )
         operation = handler.check_point_fail_pass(input)
         print(operation)
         if operation:
             success_count += 1
             print(f"O:{operation}")
-
+            transf_mtx, RX, RY, RZ, RA, RB, RC = handler.get_current_pos_base(input)
+            pose_name = str(e).zfill(3)
             if CAMERA_CONNECTED:
                 print("saving image")
-                cam.save_current_image()
+                cam.save_current_image(name=pose_name+".png")
+
+            pose_data = {
+                "W2C": transf_mtx.tolist(),
+                "RX": RX,
+                "RY": RY,
+                "RZ": RZ,
+                "RA": RA,
+                "RB": RB,
+                "RC": RC,
+            }
+
+            poses_dict[pose_name] = pose_data
+            reached_poses.append(e)
+
+        poses_dict["reached_poses"] = reached_poses
 
         print("Pushing new pose")
 
+    with open(os.path.join("camera", calibration_num,"recorded_poses.json"), "w") as f:
+        json.dump(poses_dict, f, indent=2)
 
     print("Finished moving - sending to prep position")
     transf, RX, RY, RZ, RA, RB, RC = handler.get_current_pos_base(input)
     handler.move_to_position_with_points(
-        input, X=-200.0, Y=-500.0, Z=400.0, RA=-90, RB=0, RC=180
+        input, X=-40.0, Y=-750.0, Z=400.0, RA=-90, RB=0, RC=180
     )
     operational = handler.check_point_fail_pass(input)
     # handler.move_to_position_with_points(

@@ -318,8 +318,13 @@ def align_vectors(
 def generate_poses(
     center: np.ndarray,
     radius: float,
-    theta_gen: range = range(0, 90, 20),
+    Rz:float = -90,
+    theta_gen: range = range(0, 61, 20),
     phi_gen: range = range(0, 360, 60),
+    x_limits: list = None,
+    y_limits: list = None,
+    z_limits: list = None,
+
 ):
     """Generates poses on a sphere around the given center with the given radius
 
@@ -327,12 +332,25 @@ def generate_poses(
     Args:
         center (np.ndarray): Center of the spehere where camera should look at
         radius (float): Radius of the sphere
+        Rz (float, optional): Rotation around z axis given by user in degreese. Defaults to -90.
         theta_gen (range, optional): Angles to generate poses. The angles are defined as angle from z axis. Defaults to range(0,90,20).
         phi_gen (range, optional): Angles to generate poses. The angles are defiend as angle from x axis. Defaults to (0, 360,60).
-
+        x_limits (list, optional): Limits for x axis. Defaults to None.
+        y_limits (list, optional): Limits for y axis. Defaults to None.
+        z_limits (list, optional): Limits for z axis. Defaults to None.
     Returns:
         _type_: _description_
     """
+    # Maybe add warning if the given limits are not in correct order
+    if x_limits is not None:
+        x_min, x_max = min(x_limits), max(x_limits)
+
+    if y_limits is not None:
+        y_min, y_max = min(y_limits), max(y_limits)
+
+    if z_limits is not None:
+        z_min, z_max = min(z_limits), max(z_limits)
+
     poses = []
     should_break = False
     i = 1
@@ -347,20 +365,22 @@ def generate_poses(
             y = center[1] + radius * np.sin(theta) * np.sin(phi)
             z = center[2] + radius * np.cos(theta)
 
-            # if x > 0 or x < -500:
-            #     continue
+            if x_limits is not None and (x < x_min or x > x_max):
+                continue
 
-            # if y > 0 or y < -1000:
-            #     continue
+            if y_limits is not None and (y < y_min or y > y_max):
+                continue
 
-            # print(f"Pose {i}:")
+            if z_limits is not None and (z < z_min or z > z_max):
+                continue
+            
             i += 1
             center = np.array(center)
             look_vector = center - np.array([x, y, z])
             look_vector = look_vector / np.linalg.norm(look_vector)
 
             z_axis = np.array([0, 0, 1])
-            Rz, Ry, Rx = align_vectors(look_vector, -90, location=(x, y, z))
+            Rz, Ry, Rx = align_vectors(look_vector, z_rotation=Rz, location=(x, y, z))
 
             Rz, Ry, Rx = np.rad2deg([Rz, Ry, Rx])
 
@@ -405,7 +425,7 @@ def save_poses_to_json(poses: list, filename: str):
 
     
 def visualize_pose(pose: list, ax):
-    nice_pose_print(pose)
+    # nice_pose_print(pose)
     x, y, z, Rz, Ry, Rx = pose
     Rtx_x = rotation_matrix_x(Rx, units="deg")
     Rtx_y = rotation_matrix_y(Ry, units="deg")
