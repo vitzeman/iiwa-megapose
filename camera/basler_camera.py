@@ -3,6 +3,7 @@ import os
 import time
 from datetime import datetime
 import copy
+import argparse
 
 import cv2
 from pypylon import pylon
@@ -22,6 +23,32 @@ logging.getLogger(__name__)
 # logging.basicConfig(
     # format="%(levelname)s %(asctime)s - %(message)s", level=logging.INFO
 # )
+
+def parse_arguments():
+    """Parse arguments from command line"""
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-s",
+        "--serial_number",
+        type=str,
+        default="24380112",
+        help="Serial number of the camera",
+    )
+    parser.add_argument(
+        "-c",
+        "--camera_parameters",
+        type=str,
+        default=None,
+        help="Path to camera parameters",
+    )
+    parser.add_argument(
+        "-l",
+        "--save_location",
+        type=str,
+        default="",
+        help="Path to save images",
+    )
+    return parser.parse_args()
 
 
 class BaslerCamera:
@@ -360,5 +387,8 @@ def record_video(
 
 
 if __name__ == "__main__":
-    manually_capture_images()
+    args = parse_arguments()
+    save_location = args.save_location
+    os.makedirs(save_location, exist_ok=True)
+    manually_capture_images(save_location=save_location)
     
