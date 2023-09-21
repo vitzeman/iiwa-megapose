@@ -30,8 +30,17 @@ def parse_args():
     return args
 
 
+def draw(image, corners, image_points):
+    corner = tuple(corners[0].ravel().astype(int))
+
+    image = cv2.line(image, corner, tuple(image_points[0].ravel().astype(int)), (255, 0, 0), 5)
+    image = cv2.line(image, corner, tuple(image_points[1].ravel().astype(int)), (0, 255, 0), 5)
+    image = cv2.line(image, corner, tuple(image_points[2].ravel().astype(int)), (0, 0, 255), 5)
+    return image
+
+
 def get_camera_parameters_from_images(
-    path2images: str, checker_box_size: tuple = (6, 8)
+    path2images: str, checker_box_size: tuple = (5, 8)
 ) -> dict:
     """Get camera parameters from images
 
@@ -46,15 +55,15 @@ def get_camera_parameters_from_images(
     object_points = []  # 3d point in real world space
     image_points = []  # 2d points in image plane
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-    # cv2.namedWindow("img", cv2.WINDOW_NORMAL)
+    cv2.namedWindow("img", cv2.WINDOW_NORMAL)
     for image_name in tqdm(image_names):
         image = cv2.imread(os.path.join(path2images, image_name))
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         ret, corners = cv2.findChessboardCorners(gray, checker_box_size, None)
 
-        # cv2.drawChessboardCorners(gray, checker_box_size, corners, ret)
-        # cv2.imshow("img", gray)
-        # cv2.waitKey(0)
+        cv2.drawChessboardCorners(image, checker_box_size, corners, ret)
+        cv2.imshow("img", image)
+        cv2.waitKey(0)
 
         if ret == True:
             corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
@@ -69,6 +78,7 @@ def get_camera_parameters_from_images(
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
         object_points, image_points, gray.shape[::-1], None, None
     )
+
     mean_error = 0
     for i in range(len(object_points)):
         imgpoints2, _ = cv2.projectPoints(
@@ -77,37 +87,29 @@ def get_camera_parameters_from_images(
         error = cv2.norm(image_points[i], imgpoints2, cv2.NORM_L2) / len(imgpoints2)
         mean_error += error
 
+    cv2.namedWindow("img", cv2.WINDOW_NORMAL)
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+    objp = np.zeros((checker_box_size[0]* checker_box_size[1],3), np.float32)
+    objp[:,:2] = np.mgrid[0:checker_box_size[1],0:checker_box_size[0]].T.reshape(-1,2)
+    axis = np.float32([[1,0,0], [0,1,0], [0,0,-1]]).reshape(-1,3)
+
     for e, image_name in enumerate(tqdm(image_names)):
         image = cv2.imread(os.path.join(path2images, image_name))
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        h, w = gray.shape[:2]
-        # visualize rvects and tvects
-        imgpts, jac = cv2.projectPoints(
-            np.array([(0.0, 0.0, 0.0), (0.0, 0.0, 1.0)]),
-            rvecs[e],
-            tvecs[e],
-            mtx,
-            dist,
-        )
-        image = cv2.line(image, tuple(imgpts[0].ravel()), tuple(imgpts[1].ravel()), (0, 255, 0), 3)
-        imgpts, jac = cv2.projectPoints(
-            np.array([(0.0, 0.0, 0.0), (1.0, 0.0, 0.0)]),
-            rvecs[e],
-            tvecs[e],
-            mtx,
-            dist,
-        )
-        image = cv2.line(image, tuple(imgpts[0].ravel()), tuple(imgpts[1].ravel()), (255, 0, 0), 3)
-        imgpts, jac = cv2.projectPoints(
-            np.array([(0.0, 0.0, 0.0), (0.0, 1.0, 0.0)]),
-            rvecs[e],
-            tvecs[e],
-            mtx,
-            dist,
-        )
-        image = cv2.line(image, tuple(imgpts[0].ravel()), tuple(imgpts[1].ravel()), (0, 0, 255), 3)
-        cv2.imshow("img", image)
-        cv2.waitKey(0)
+
+        ret, corners = cv2.findChessboardCorners(gray, checker_box_size, None)
+        if ret:
+            corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+            print(rvecs[e], tvecs[e])
+            # Find the rotation and translation vectors.
+            ret,rvecs2, tvecs2 = cv2.solvePnP(objp, corners2, mtx, dist)
+            print(rvecs2, tvecs2)
+            # project 3D points to image plane
+            imgpts, jac = cv2.projectPoints(axis, rvecs[e], tvecs[e], mtx, dist)
+
+            image = draw(image, corners2, imgpts)
+            cv2.imshow("img", image)
+            cv2.waitKey(0)
 
 
 
@@ -118,6 +120,8 @@ def get_camera_parameters_from_images(
         "height": gray.shape[0],
         "width": gray.shape[1],
     }
+
+    cv2.destroyAllWindows()
     return camera_parameters
 
 

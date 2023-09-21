@@ -79,7 +79,7 @@ if __name__ == "__main__":
     # handler.move_to_position_with_points(
     #     input, X=-200.0, Y=-500.0, Z=500.0, RA=90, RB=0, RC=90
     # )
-    calibration_num = "calibration4"
+    calibration_num = "calibration-180"
     if CAMERA_CONNECTED:
         cam = BaslerCamera(
             save_location=os.path.join("camera", calibration_num, "images")
@@ -87,9 +87,14 @@ if __name__ == "__main__":
         cam.connect()
         cam.adjust_camera()
 
-    center = [-50, -750, 0]
+    center = [0, -550, 40]
     poses = generate_poses(
-        np.array(center), 500, Rz=-90, phi_gen=range(0,360,30), y_limits=(-760, -200), z_limits=(100, 500)
+        np.array(center),
+        500,
+        Rz=-90,
+        phi_gen=range(0, 360, 15),
+        y_limits=(-1000, -200),
+        z_limits=(100, 600),
     )
 
     fig = plt.figure()
@@ -125,9 +130,7 @@ if __name__ == "__main__":
         print("Sending to new pose:", end="\t")
         nice_pose_print(pose)
         X, Y, Z, RZ, RY, RX = pose
-        handler.move_to_position_with_points(
-            input, X=X, Y=Y, Z=Z, RA=RZ, RB=RY, RC=RX
-        )
+        handler.move_to_position_with_points(input, X=X, Y=Y, Z=Z, RA=RZ, RB=RY, RC=RX)
         operation = handler.check_point_fail_pass(input)
         print(operation)
         if operation:
@@ -137,7 +140,8 @@ if __name__ == "__main__":
             pose_name = str(e).zfill(3)
             if CAMERA_CONNECTED:
                 print("saving image")
-                cam.save_current_image(name=pose_name+".png")
+                time.sleep(0.2)
+                cam.save_current_image(name=pose_name + ".png")
 
             pose_data = {
                 "W2C": transf_mtx.tolist(),
@@ -156,7 +160,7 @@ if __name__ == "__main__":
 
         print("Pushing new pose")
 
-    with open(os.path.join("camera", calibration_num,"recorded_poses.json"), "w") as f:
+    with open(os.path.join("camera", calibration_num, "recorded_poses.json"), "w") as f:
         json.dump(poses_dict, f, indent=2)
 
     print("Finished moving - sending to prep position")
