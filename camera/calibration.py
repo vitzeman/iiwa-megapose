@@ -26,7 +26,17 @@ def parse_args():
         help="Path to save camera parameters",
         default="camera_parameters.json",
     )
+    parser.add_argument(
+        "--vertices",
+        type=int,
+        help="Number of vertices in the calibration pattern should be 2 numbers",
+        nargs=2,
+        required=True,
+
+    )
     args = parser.parse_args()
+    # 
+    args.vertices = tuple(args.vertices)
     return args
 
 
@@ -40,7 +50,7 @@ def draw(image, corners, image_points):
 
 
 def get_camera_parameters_from_images(
-    path2images: str, checker_box_size: tuple = (5, 8)
+    path2images: str, checker_box_size: tuple = (6, 8)
 ) -> dict:
     """Get camera parameters from images
 
