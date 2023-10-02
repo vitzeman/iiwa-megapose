@@ -29,14 +29,16 @@ def parse_args():
         "--save_path",
         type=str,
         help="Path to save camera parameters",
-        default="camera_parameters.json",
+        default="camera_parameters2.json",
     )
+    # Maybe remove in the future
     parser.add_argument(
         "--vertices",
         type=int,
         help="Number of vertices in the calibration pattern should be 2 numbers",
         nargs=2,
-        required=True,
+        required=False,
+        default=(6, 8),
     )
     args = parser.parse_args()
     #
@@ -78,19 +80,25 @@ def get_camera_parameters_from_images_multiple(
         idx_found = False
         for image_name in tqdm(image_names):
             image = cv2.imread(os.path.join(img_path, image_name))
+            print(os.path.join(img_path, image_name))
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
             ret = False
             for e, checkers_size in enumerate(POSSIBLE_VERTICIES):
-                checker_box_size = POSSIBLE_VERTICIES[e]
+                if idx_found:
+                    checker_box_size = POSSIBLE_VERTICIES[checker_idx]
+                else:
+                    checker_box_size = POSSIBLE_VERTICIES[e]
+
                 ret, corners = cv2.findChessboardCorners(gray, checker_box_size, None)
                 checker_idx = e
-
+                
                 if ret:
                     idx_found = True
                     cv2.drawChessboardCorners(image, checker_box_size, corners, ret)
+                    cv2.putText(image, f"File: {os.path.join(img_path, image_name)}", org=(50, 50), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, color=(0, 0, 255), thickness=2)
                     cv2.imshow("img", image)
-                    cv2.waitKey(0)
+                    cv2.waitKey(1)
 
                     corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
                     object_points.append(
@@ -100,6 +108,7 @@ def get_camera_parameters_from_images_multiple(
                         0 : checker_box_size[0], 0 : checker_box_size[1]
                     ].T.reshape(-1, 2)
                     image_points.append(corners2)
+                    break
 
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
         object_points, image_points, gray.shape[::-1], None, None
@@ -208,6 +217,7 @@ def get_camera_parameters_from_images(
 
 if __name__ == "__main__":
     args = parse_args()
-    # camera_params = get_camera_parameters_from_images(args.path2images)
-    # with open(args.save_path, "w") as f:
-    #     json.dump(camera_params, f, indent=2)
+    print(args.path2images)
+    camera_params = get_camera_parameters_from_images_multiple(args.path2images)
+    with open(args.save_path, "w") as f:
+        json.dump(camera_params, f, indent=2)
