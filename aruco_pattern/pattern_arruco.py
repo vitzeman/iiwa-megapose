@@ -174,7 +174,7 @@ def get_rectangle_pattern(
 
     obj_points = np.array(obj_points, dtype=np.float32)
     ids = np.array(ids)
-    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100)
     board = cv2.aruco.Board(obj_points, dictionary, ids)
 
     output_dict["points"] = points_list
@@ -186,49 +186,33 @@ def get_rectangle_pattern(
     )
 
 
-def working():
-    """
-    Returns a pattern of the ArUco markers.
-    """
-    # p1 = np.array(
-    #     [[0, 0, 0], [0, 0.1, 0], [0.1, 0.1, 0], [0.1, 0, 0]], dtype=np.float32
-    # )
-    # p2 = np.array([[2, 0, 0], [2, 1, 0], [3, 1, 0], [3, 0, 0]], dtype=np.float32)
-    # objPoints = np.array([p1, p2])
-    # ids = np.array([0, 1])
+def create_rectangular_pattern(tag_size_mm, dpi, paper_size, margin, output_file):
+    board, res, points_dict = get_rectangle_pattern(
+        tag_size_mm, dpi, paper_size, margin
+    )
 
-    objPoints = []
-    for i in range(2):
-        for j in range(2):
-            objPoints.append(
-                np.array(
-                    [[i, j, 0], [i, j + 1, 0], [i + 1, j + 1, 0], [i + 1, j, 0]],
-                    dtype=np.float32,
-                )
-            )
-    ids = np.array([0, 1, 2, 3])
+    with open(output_file + ".json", "w") as f:
+        json.dump(points_dict, f, indent=2)
 
-    objPoints = np.array(objPoints, dtype=np.float32)
-    print(objPoints.shape)
-    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
-    board = cv2.aruco.Board(objPoints, dictionary, ids)
-    return board
+    img = board.generateImage(res, marginSize=10, borderBits=1)
+    cv2.imwrite(output_file + ".png", img)
 
 
 if __name__ == "__main__":
-    board, res, points_dict = get_rectangle_pattern(30, 300, "A4", 10)
+    # board, res, points_dict = get_rectangle_pattern(30, 300, "A4", 10)
 
-    with open("points.json", "w") as f:
-        json.dump(points_dict, f, indent=2)
+    # with open("points.json", "w") as f:
+    #     json.dump(points_dict, f, indent=2)
 
-    # board = working()
-    print(board)
-    # img = board.generateImage((500, 500), marginSize=10, borderBits=1)
-    print(res)
-    img = board.generateImage(res, marginSize=10, borderBits=1)
-    print(img.shape)
-    cv2.imshow("board", img)
-    cv2.imwrite("board.png", img)
+    # # board = working()
+    # print(board)
+    # # img = board.generateImage((500, 500), marginSize=10, borderBits=1)
+    # print(res)
+    # img = board.generateImage(res, marginSize=10, borderBits=1)
+    # print(img.shape)
+    # cv2.imshow("board", img)
+    # cv2.imwrite("board.png", img)
 
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    create_rectangular_pattern(30, 300, "A0", 10, "data/testA0")
