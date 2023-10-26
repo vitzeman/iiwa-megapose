@@ -4,10 +4,14 @@
 __pycache__/
 *.py[cod]
 
+# Mesh manipulation data
 mesh_manipulation/data
+
+# Aruco patterm creation data
 aruco_pattern/data
 
+# Basler camera demos
 camera/images/demo
 
+#Megapose6D repository
 megapose6d/
-
