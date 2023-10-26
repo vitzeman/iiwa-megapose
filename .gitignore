@@ -7,3 +7,7 @@ __pycache__/
 mesh_manipulation/data
 aruco_pattern/data
 
+camera/images/demo
+
+megapose6d/
+

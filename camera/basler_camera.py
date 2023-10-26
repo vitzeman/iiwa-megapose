@@ -45,7 +45,7 @@ def parse_arguments():
         "-l",
         "--save_location",
         type=str,
-        default="",
+        default=os.path.join("camera", "images", "demo"),
         help="Path to save images",
     )
     return parser.parse_args()
@@ -126,7 +126,7 @@ class BaslerCamera:
         Returns:
             bool: True if program should stop, False otherwise
         """
-        if key == ord("q"):
+        if key in [ord("q"), 27]: # quit program maybe add Esc
             return True
         elif key == ord("s"):  # save image
             self.save_current_image()
