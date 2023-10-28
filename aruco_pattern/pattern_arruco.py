@@ -13,9 +13,9 @@ SIZES = {
 }  # in mm
 
 
-DPI = 300
-TAG_SIZE_MM = 30  # in mm
-TAG_SIZE_PX = int(TAG_SIZE_MM * DPI / 25.4)  # in px
+# DPI = 300
+# TAG_SIZE_MM = 30  # in mm
+# TAG_SIZE_PX = int(TAG_SIZE_MM * DPI / 25.4)  # in px
 
 
 def get_rectangle_pattern(
@@ -44,7 +44,8 @@ def get_rectangle_pattern(
         raise ValueError("paper_size must be either str or tuple")
 
     tag_size_px = int(tag_size * dpi / 25.4)
-    margins_px = int(margins * dpi / 25.4)
+    # margins_px = int(margins * dpi / 25.4)
+    margins_px = margins
     tag_size_mm = tag_size
     print(f"Tag size in px: {tag_size_px}")
 
@@ -101,20 +102,24 @@ def get_rectangle_pattern(
             for x in range(num_x):
                 point = np.array(
                     [
-                        [x * (tag_size_px + gap_x), y * (tag_size_px + gap_y), 0],
                         [
-                            x * (tag_size_px + gap_x) + tag_size_px,
-                            y * (tag_size_px + gap_y),
+                            x * (tag_size_px + gap_x) + margins_px,
+                            y * (tag_size_px + gap_y) + margins_px,
                             0,
                         ],
                         [
-                            x * (tag_size_px + gap_x) + tag_size_px,
-                            y * (tag_size_px + gap_y) + tag_size_px,
+                            x * (tag_size_px + gap_x) + tag_size_px + margins_px,
+                            y * (tag_size_px + gap_y) + margins_px,
                             0,
                         ],
                         [
-                            x * (tag_size_px + gap_x),
-                            y * (tag_size_px + gap_y) + tag_size_px,
+                            x * (tag_size_px + gap_x) + tag_size_px + margins_px,
+                            y * (tag_size_px + gap_y) + tag_size_px + margins_px,
+                            0,
+                        ],
+                        [
+                            x * (tag_size_px + gap_x) + margins_px,
+                            y * (tag_size_px + gap_y) + tag_size_px + margins_px,
                             0,
                         ],
                     ],
@@ -133,10 +138,22 @@ def get_rectangle_pattern(
         else:  # other rows should have only first and last tag
             point = np.array(
                 [
-                    [0, y * (tag_size_px + gap_y), 0],
-                    [tag_size_px, y * (tag_size_px + gap_y), 0],
-                    [tag_size_px, y * (tag_size_px + gap_y) + tag_size_px, 0],
-                    [0, y * (tag_size_px + gap_y) + tag_size_px, 0],
+                    [0 + margins_px, y * (tag_size_px + gap_y) + margins_px, 0],
+                    [
+                        tag_size_px + margins_px,
+                        y * (tag_size_px + gap_y) + margins_px,
+                        0,
+                    ],
+                    [
+                        tag_size_px + margins_px,
+                        y * (tag_size_px + gap_y) + tag_size_px + margins_px,
+                        0,
+                    ],
+                    [
+                        0 + margins_px,
+                        y * (tag_size_px + gap_y) + tag_size_px + margins_px,
+                        0,
+                    ],
                 ],
                 dtype=np.float32,
             )
@@ -151,12 +168,24 @@ def get_rectangle_pattern(
             idx += 1
             point = np.array(
                 [
-                    [paper_x_px - tag_size_px, y * (tag_size_px + gap_y), 0],
-                    [paper_x_px, y * (tag_size_px + gap_y), 0],
-                    [paper_x_px, y * (tag_size_px + gap_y) + tag_size_px, 0],
                     [
-                        paper_x_px - tag_size_px,
-                        y * (tag_size_px + gap_y) + tag_size_px,
+                        paper_x_px - tag_size_px + margins_px,
+                        y * (tag_size_px + gap_y) + margins_px,
+                        0,
+                    ],
+                    [
+                        paper_x_px + margins_px,
+                        y * (tag_size_px + gap_y) + margins_px,
+                        0,
+                    ],
+                    [
+                        paper_x_px + margins_px,
+                        y * (tag_size_px + gap_y) + tag_size_px + margins_px,
+                        0,
+                    ],
+                    [
+                        paper_x_px - tag_size_px + margins_px,
+                        y * (tag_size_px + gap_y) + tag_size_px + margins_px,
                         0,
                     ],
                 ],
@@ -174,7 +203,11 @@ def get_rectangle_pattern(
 
     obj_points = np.array(obj_points, dtype=np.float32)
     ids = np.array(ids)
-    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100)
+
+    # Použít apriltagy lepší stabilita 6x6
+    # dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100)
+    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
+
     board = cv2.aruco.Board(obj_points, dictionary, ids)
 
     output_dict["points"] = points_list
@@ -190,12 +223,13 @@ def create_rectangular_pattern(tag_size_mm, dpi, paper_size, margin, output_file
     board, res, points_dict = get_rectangle_pattern(
         tag_size_mm, dpi, paper_size, margin
     )
-
+    print("Bord_resolution:", res)
     with open(output_file + ".json", "w") as f:
         json.dump(points_dict, f, indent=2)
 
-    img = board.generateImage(res, marginSize=10, borderBits=1)
+    img = board.generateImage(res, marginSize=margin, borderBits=1)
     cv2.imwrite(output_file + ".png", img)
+    print(output_file + ".png")
 
 
 if __name__ == "__main__":
@@ -215,4 +249,12 @@ if __name__ == "__main__":
 
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
-    create_rectangular_pattern(30, 300, "A0", 10, "data/testA0")
+    dpi = 600
+    tag_size = 50  # mm
+
+    edges_space = 10  # mm
+    edges_space_px = int(edges_space * dpi / 25.4)
+
+    print(edges_space_px)
+
+    create_rectangular_pattern(tag_size, dpi, "A1", edges_space_px, "data/A1_600DPI")
