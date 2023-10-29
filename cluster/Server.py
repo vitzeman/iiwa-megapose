@@ -21,6 +21,11 @@ def parse_args():
 
 
 def process_iteration(socket):
+    """Proccess one iteration of the from the client provided data and send back result
+
+    Args:
+        socket (_type_): _description_
+    """
     # Receive the data
     data = socket.recv(1024)
     bbox = socket.recv(1024)
