@@ -14,4 +14,4 @@ aruco_pattern/data
 camera/images/demo
 
 #Megapose6D repository
-megapose6d/
+megapose6d/*
