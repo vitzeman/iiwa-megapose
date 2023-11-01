@@ -2,7 +2,7 @@ import cv2
 
 import numpy as np
 
-FILE = "data/testA1.png"
+FILE = "data/Test_board.jpg"
 
 img = cv2.imread(FILE)
 
@@ -26,16 +26,19 @@ if len(corners) > 0:
         br = (int(br[0]), int(br[1]))
         bl = (int(bl[0]), int(bl[1]))
 
-        cv2.line(img, tl, tr, (0, 255, 0), 2)
-        cv2.line(img, tr, br, (0, 255, 0), 2)
-        cv2.line(img, br, bl, (0, 255, 0), 2)
-        cv2.line(img, bl, tl, (0, 255, 0), 2)
+        cv2.line(img, tl, tr, (0, 255, 0), 5)
+        cv2.line(img, tr, br, (0, 255, 0), 5)
+        cv2.line(img, br, bl, (0, 255, 0), 5)
+        cv2.line(img, bl, tl, (0, 255, 0), 5)
 
         Cx = int((tl[0] + br[0]) / 2.0)
         Cy = int((tl[1] + br[1]) / 2.0)
 
         cv2.putText(
-            img, str(markerID), (Cx, Cy), cv2.FONT_HERSHEY_SIMPLEX, 10, (0, 255, 0), 2
+            img, str(markerID), (Cx, Cy), cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 0, 255), 3
         )
 
-    cv2.imwrite("data/testA1_out.png", img)
+    out_file_name = FILE.split(".")[0] + "_out.png"
+    # cv2.imshow("img", img)
+    # cv2.waitKey(0)
+    cv2.imwrite(out_file_name, img)

@@ -17,6 +17,9 @@ SIZES = {
 # TAG_SIZE_MM = 30  # in mm
 # TAG_SIZE_PX = int(TAG_SIZE_MM * DPI / 25.4)  # in px
 
+# TODO: Add proper margin save
+# complete documentation
+
 
 def get_rectangle_pattern(
     tag_size: int,
