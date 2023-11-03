@@ -6,6 +6,12 @@ import cv2
 import numpy as np
 import pyrealsense2 as rs
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--save_path", type=str, help="Path 2 save the recording", default="data")
+    args = parser.parse_args()
+    return args
 
 
 class RealSenseCamera:
@@ -51,12 +57,27 @@ class RealSenseCamera:
 
         return color_frame, aligned_depth_frame
     
-    def make_recoring(self):
-        save_folder = "data"
+    def make_recoring(self, save_path:str):
+        save_folder = save_path
         save_color_path = os.path.join(save_folder, "color")
         save_depth_path = os.path.join(save_folder, "depth")
         os.makedirs(save_color_path, exist_ok=True)
         os.makedirs(save_depth_path, exist_ok=True)
+        intrinsics = self.get_intrinsics()
+        print("Intrinsics: ", type(intrinsics))
+
+        intrinsics_d = {
+            "fx": intrinsics.fx,
+            "fy": intrinsics.fy,
+            "ppx": intrinsics.ppx,
+            "ppy": intrinsics.ppy,
+            "height": intrinsics.height,
+            "width": intrinsics.width,
+            "model": str(intrinsics.model),
+            "coeffs": intrinsics.coeffs,
+        }
+        with open(os.path.join(save_folder, "intrinsics.json"), "w") as f:
+            json.dump(intrinsics_d, f, indent=2)
         i = 0
         while True:
             name = str(i).zfill(6)
@@ -75,8 +96,10 @@ class RealSenseCamera:
             
         
 if __name__ == "__main__":
+    args = parse_args()
+    save_path = args.save_path
     cam = RealSenseCamera()
-    cam.make_recoring()
+    cam.make_recoring(save_path)
     # while True:
     #     color_frame, aligned_depth_frame = cam.get_aligned_frames()
     #     color_image = np.asanyarray(color_frame.get_data())
