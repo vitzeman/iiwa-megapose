@@ -2,9 +2,13 @@ import argparse
 import os
 import json 
 
+
+import png
+
 import cv2
 import numpy as np
 import pyrealsense2 as rs
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -57,6 +61,36 @@ class RealSenseCamera:
 
         return color_frame, aligned_depth_frame
     
+    def save_depth_image(self, depth, name:str):
+        """Saves depth image into png format with 16 bit
+
+        Args:
+            depth (np.ndarray): Uint16 numpy array containing depth values
+            name (str): Name of the file to save
+        """            
+        depth = depth.astype(np.uint16)
+        w_depth = png.Writer(width=depth.shape[1], height=depth.shape[0], bitdepth=16, greyscale=True)
+        with open(name, "wb") as f:
+            w_depth.write(f, depth)
+
+
+    def read_depth_image(self, name:str) -> np.ndarray:
+        """Reads the depth image from png file
+
+        Args:
+            name (str): Name of the file to read
+
+        Returns:
+            np.ndarray: Depth image as numpy array
+        """        
+        r = png.Reader(filename=name)
+        w,h, depth, meta = r.read()
+        depth = np.array(list(depth)).reshape((h,w))
+        return depth
+    
+    
+
+    
     def make_recoring(self, save_path:str):
         save_folder = save_path
         save_color_path = os.path.join(save_folder, "color")
@@ -91,7 +125,7 @@ class RealSenseCamera:
                 break
 
             cv2.imwrite(os.path.join(save_color_path, name + ".png"), color_image)
-            cv2.imwrite(os.path.join(save_depth_path, name + ".png"), depth_image)
+            self.save_depth_image(depth_image, os.path.join(save_depth_path, name + ".png"))
             i += 1
             
         
@@ -113,5 +147,24 @@ if __name__ == "__main__":
     #     if key == ord('q'):
     #         break
     #     elif key == ord('s'):
+
     #         cv2.imwrite("color.png", color_image)
     #         cv2.imwrite("depth.png", depth_image)
+    #         # SAVE the depth as uint16 with 1 channel
+    #         depth_image = depth_image.astype(np.uint16)
+    #         w_depth = png.Writer(width=depth_image.shape[1], height=depth_image.shape[0], bitdepth=16, greyscale=True)
+    #         with open("depth.png", "wb") as f:
+    #             w_depth.write(f, depth_image)
+
+    #         r_depth = png.Reader(filename="depth.png")
+    #         depth_loaded = r_depth.read()
+    #         print(depth_loaded)
+    #         w,h, depth, meta = depth_loaded
+    #         depth_loaded = np.array(list(depth)).reshape((h,w))
+    #         print("Depth loaded shape: ", depth_loaded.shape)
+    #         print(np.unique(depth_image, return_counts=True))
+    #         print(np.unique(depth_loaded, return_counts=True))
+    #         # print(np.unique(depth_loaded[:,:,0], return_counts=True))
+    #         print((depth_image == depth_loaded).all())
+
+    # cam.end_stream()
