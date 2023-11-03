@@ -2,11 +2,13 @@ import argparse
 import os
 import time
 import json
+import getpass
 
 from mlsocket import MLSocket
 import cv2
 # import paramiko
 import numpy as np
+
 
 HOST = "127.0.0.1"
 PORT = 65432
@@ -32,7 +34,6 @@ def parse_args():
     parser.add_argument("--host", type=str, default="127.0.0.1")
     parser.add_argument("--port", type=int, default=65432)
     parser.add_argument("--user", type=str, default="zemanvit")
-    parser.add_argument("--password", type=str, required=True)
 
     return parser.parse_args()
 
@@ -56,7 +57,7 @@ def parse_args():
 #     ssh.close()
 
 
-def proccess_input_data(
+def get_megapose_estimation(
     socket, img: np.ndarray, bbox: np.ndarray, id: np.ndarray
 ) -> np.ndarray:
     """Sents the data to the server and waits for the response
@@ -109,8 +110,9 @@ if __name__ == "__main__":
     args = parse_args()
     host = args.host
     port = args.port
-    usr = args.user
-    pwd = args.password
+    # usr = args.user
+
+    # pwd = getpass.getpass(f" Input password for {usr}@{host}: ")
 
     img = cv2.imread("/home/testbed/Projects/iiwa-megapose/megapose6d/local_data/examples/Main/images/img_0000.png")
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) # CHANGED FOR TO FOLLOW PIL
@@ -128,13 +130,12 @@ if __name__ == "__main__":
         s.connect((host, port))  # Connect to the port and host
         
         while True:
-            pose = proccess_input_data(s, img, bbox, label)
+            pose = get_megapose_estimation(s, img, bbox, label)
 
             quat = pose[:4]
             transl = pose[4:]
 
             print(f"quat: {quat}, transl: {transl} received")
-
 
             break
 
