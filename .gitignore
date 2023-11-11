@@ -12,6 +12,7 @@ aruco_pattern/data
 
 # Basler camera demos
 camera/images/demo
+camera/data
 
 #Megapose6D repository
 megapose6d/*
