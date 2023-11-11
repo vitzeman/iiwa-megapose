@@ -6,10 +6,8 @@ import numpy as np
 import cv2
 from tqdm import tqdm
 
-POSSIBLE_VERTICIES = [
-    (6, 8),
-    (5,8)
-]
+POSSIBLE_VERTICIES = [(6, 8), (5, 8)]
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -44,6 +42,8 @@ def parse_args():
     #
     args.vertices = tuple(args.vertices)
 
+    print(args.path2images)
+
     if len(args.path2images) == 1:
         args.path2images = args.path2images[0]
 
@@ -73,12 +73,15 @@ def get_camera_parameters_from_images_multiple(
     mean = 0
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
     cv2.namedWindow("img", cv2.WINDOW_NORMAL)
+    if type(path2images) == str:
+        path2images = [path2images]
     for img_path in path2images:
         print(f"Processing {img_path}")
         image_names = sorted(os.listdir(img_path))
         checker_idx = 0
         idx_found = False
         for image_name in tqdm(image_names):
+            print(image_name)
             image = cv2.imread(os.path.join(img_path, image_name))
             print(os.path.join(img_path, image_name))
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -92,17 +95,29 @@ def get_camera_parameters_from_images_multiple(
 
                 ret, corners = cv2.findChessboardCorners(gray, checker_box_size, None)
                 checker_idx = e
-                
+
                 if ret:
                     idx_found = True
                     cv2.drawChessboardCorners(image, checker_box_size, corners, ret)
-                    cv2.putText(image, f"File: {os.path.join(img_path, image_name)}", org=(50, 50), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, color=(0, 0, 255), thickness=2)
+                    cv2.putText(
+                        image,
+                        f"File: {os.path.join(img_path, image_name)}",
+                        org=(50, 50),
+                        fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                        fontScale=1,
+                        color=(0, 0, 255),
+                        thickness=2,
+                    )
                     cv2.imshow("img", image)
                     cv2.waitKey(1)
 
-                    corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+                    corners2 = cv2.cornerSubPix(
+                        gray, corners, (11, 11), (-1, -1), criteria
+                    )
                     object_points.append(
-                        np.zeros((checker_box_size[0] * checker_box_size[1], 3), np.float32)
+                        np.zeros(
+                            (checker_box_size[0] * checker_box_size[1], 3), np.float32
+                        )
                     )
                     object_points[-1][:, :2] = np.mgrid[
                         0 : checker_box_size[0], 0 : checker_box_size[1]
@@ -129,6 +144,7 @@ def get_camera_parameters_from_images_multiple(
     }
     return camera_parameters
 
+
 def get_camera_parameters_from_images(
     path2images: str, checker_box_size: tuple = (6, 8)
 ) -> dict:
@@ -153,7 +169,7 @@ def get_camera_parameters_from_images(
 
         cv2.drawChessboardCorners(image, checker_box_size, corners, ret)
         cv2.imshow("img", image)
-        cv2.waitKey(0)
+        key = cv2.waitKey(0)
 
         if ret == True:
             corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
@@ -179,11 +195,11 @@ def get_camera_parameters_from_images(
 
     cv2.namedWindow("img", cv2.WINDOW_NORMAL)
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-    objp = np.zeros((checker_box_size[0] * checker_box_size[1], 3), np.float32)
-    objp[:, :2] = np.mgrid[0 : checker_box_size[1], 0 : checker_box_size[0]].T.reshape(
-        -1, 2
+    objp = np.zeros((checker_box_size[1] * checker_box_size[0], 3), np.float32)
+    objp[:, :2] = (
+        np.mgrid[0 : checker_box_size[0], 0 : checker_box_size[1]].T.reshape(-1, 2) * 30
     )
-    axis = np.float32([[1, 0, 0], [0, 1, 0], [0, 0, -1]]).reshape(-1, 3)
+    axis = np.float32([[1, 0, 0], [0, 1, 0], [0, 0, -1]]).reshape(-1, 3) * 30
 
     for e, image_name in enumerate(tqdm(image_names)):
         image = cv2.imread(os.path.join(path2images, image_name))
@@ -192,16 +208,21 @@ def get_camera_parameters_from_images(
         ret, corners = cv2.findChessboardCorners(gray, checker_box_size, None)
         if ret:
             corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-            print(rvecs[e], tvecs[e])
+            # print(rvecs[e].flatten(), tvecs[e].flatten())
             # Find the rotation and translation vectors.
-            ret, rvecs2, tvecs2 = cv2.solvePnP(objp, corners2, mtx, dist)
-            print(rvecs2, tvecs2)
+            # ret, rvecs2, tvecs2 = cv2.solvePnP(objp, corners2, mtx, dist)
+
+            ret, rvecs, tvecs = cv2.solvePnP(objp, corners2, mtx, dist)
             # project 3D points to image plane
-            imgpts, jac = cv2.projectPoints(axis, rvecs[e], tvecs[e], mtx, dist)
+            imgpts, jac = cv2.projectPoints(axis, rvecs, tvecs, mtx, dist)
+
+            # print(rvecs2.flatten(), tvecs2.flatten())
+            # project 3D points to image plane
+            # imgpts, jac = cv2.projectPoints(axis, rvecs2, tvecs2, mtx, dist)
 
             image = draw(image, corners2, imgpts)
             cv2.imshow("img", image)
-            cv2.waitKey(0)
+            key = cv2.waitKey(0)
 
     camera_parameters = {
         "camera_matrix": mtx.tolist(),
@@ -218,6 +239,7 @@ def get_camera_parameters_from_images(
 if __name__ == "__main__":
     args = parse_args()
     print(args.path2images)
-    camera_params = get_camera_parameters_from_images_multiple(args.path2images)
+    # camera_params = get_camera_parameters_from_images_multiple(args.path2images)
+    camera_params = get_camera_parameters_from_images(args.path2images, (5, 8))
     with open(args.save_path, "w") as f:
         json.dump(camera_params, f, indent=2)
