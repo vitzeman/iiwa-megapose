@@ -58,7 +58,7 @@ def parse_args():
 
 
 def get_megapose_estimation(
-    socket, img: np.ndarray, bbox: np.ndarray, id: np.ndarray
+    socket, img: np.ndarray, bbox: np.ndarray, idx: np.ndarray
 ) -> np.ndarray:
     """Sents the data to the server and waits for the response
 
@@ -69,13 +69,13 @@ def get_megapose_estimation(
         id (np.ndarray): Id of the object to send shape, (1,)
 
     Returns:
-        np.ndarray: Pose of the object, shape (7,)
+        np.ndarray: Pose of the object, shape (7,) [quaternion, translation]
     """
     # TODO: Add check for the shape of the data
 
     socket.send(img)
     socket.send(bbox)
-    socket.send(id)
+    socket.send(idx)
 
     pose = socket.recv(1024)
     return pose
