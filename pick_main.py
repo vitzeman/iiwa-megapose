@@ -91,12 +91,7 @@ class Frame_processing(BaslerCamera):
             cv2.rectangle(frame_vis, (self.bbox[0], self.bbox[1]), (self.bbox[2], self.bbox[3]), (0, 255, 0), 2)
 
         cv2.imshow(self.window_name, frame_vis)
-
-
         return should_quit, self.frame, self.bbox, self.idx
-
-
-
 
 
 if __name__ == "__main__":
@@ -105,6 +100,15 @@ if __name__ == "__main__":
     detector.connect()
     detector.adjust_camera()
 
+    # TODO: Add parser for the host and port
+    # Server comunication init
+    ml_socket = MLSocket()
+    host = "10.35.129.250"
+    port = 65432
+    ml_socket.connect((host, port))
+    print(f"Connection to {host}:{port} established")
+
+    # Main loop
     while True:
         should_quit, frame, bbox, idx = detector.proccess_frame()
         if should_quit: # Should quit after q is pressed in the window
@@ -117,39 +121,12 @@ if __name__ == "__main__":
             print("Wrong type")
             continue
 
-        # Proccess the frame 
-        # pose = get_megapose_estimation(ml_socket, frame, bbox, idx)
+        # Get the pose from megapose running on the cluster 
+        pose = get_megapose_estimation(ml_socket, frame, bbox, idx)
 
-
-
+        # Plan the movement of the robot
 
     # Deactivate everything else
+    ml_socket.close()
     detector.disconnect()
     cv2.destroyAllWindows()
-
-    # Window for the detection vis
-    # cv2.namedWindow("Detection view", cv2.WINDOW_NORMAL)
-
-    # Server init values TODO: ADD parser
-    # host = "10.35.129.250"
-    # port = 65432
-    # with MLSocket() as ml_socket:
-    #     ml_socket.connect((host, port))
-
-    #     while True:
-    #         # get object description 
-    #         # For now from the cv2 window capture  in the future maybe some NN to get this stuff
-    #         image = None
-    #         bbox = None
-    #         idx = None
-
-    #         frame, bbox, idx = detector.proccess_frame()
-
-    #         if image is None or bbox is None or idx is None:
-    #             continue
-
-    #         pose = get_megapose_estimation(ml_socket, image, bbox, idx)
-
-    #         # Plan the movement of the robot
-
-    
