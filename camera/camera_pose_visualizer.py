@@ -9,6 +9,7 @@ from tqdm import tqdm
 from scipy.spatial.transform import Rotation as R
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+import pickle
 
 
 class CameraPoseVisualizer:
@@ -155,6 +156,20 @@ class CameraPoseVisualizer:
     def add_legend_entry(self, color: str, text: str):
         self.ax.scatter([], [], marker="v", color=color, label=text)
 
+    def save_pickle(self, path: str):
+        with open(path, "wb") as f:
+            pickle.dump(self.fig, f)
+
+    def load_pickle(self, path: str):
+        with open(path, "rb") as f:
+            self.fig = pickle.load(f)
+
+
+def load_pickle(path: str):
+    with open(path, "rb") as f:
+        fig = pickle.load(f)
+    return fig
+
 
 if __name__ == "__main__":
     # Testing_part
@@ -163,46 +178,57 @@ if __name__ == "__main__":
     # cam_pose_vis.add_camera(np.eye(4), text="0")
     # T_mtx = np.eye(4)
     # T_mtx[:3, 3] = 1
-    # cam_pose_vis.add_camera(T_mtx, color="b", text="1")
+    # # cam_pose_vis.add_camera(T_mtx, color="b", text="1")
+    # # cam_pose_vis.show()
+    # cam_pose_vis.save("test.png")
+    # cam_pose_vis.save_pickle("test.pkl")
+    # print("done")
+    # cam_pose_vis.fig = None
+    # print("load")
+    # cam_pose_vis.load_pickle("test.pkl")
+    # print("show")
+    # cam_pose_vis.show()
+    fig = load_pickle("test.pkl")
+    plt.show()
+
+    # cam_pose_vis.save("test.png")
+    # cam_pose_vis = CameraPoseVisualizer(xlim=(-1, 1), ylim=(-1, 1), zlim=(0, 1))
+    # with open(
+    #     os.path.join("camera", "data", "Benchmark_scene1", "transforms.json")
+    # ) as f:
+    #     aruco_dict = json.load(f)
+
+    # with open(
+    #     os.path.join("camera", "data", "Benchmark_scene1", "base_extrinsics.json")
+    # ) as f:
+    #     refined_poses = json.load(f)
+
+    # aruco_frames = aruco_dict["frames"]
+    # for e, a_frame in enumerate(
+    #     tqdm(aruco_frames, desc="Processing aruco", unit="image")
+    # ):
+    #     name = a_frame["file_path"].split("/")[-1].split(".")[0]
+    #     num = int(name)
+    #     name = str(num)
+    #     T_mtx = np.array(a_frame["transform_matrix"])
+
+    #     if e % 10 == 0:
+    #         cam_pose_vis.add_camera(T_mtx, color="b", text=None, focal_len_scaled=0.1)
+
+    # cam_pose_vis.add_legend_entry("b", "Aruco")
+
+    # for e, r_frame in enumerate(
+    #     tqdm(refined_poses, desc="Processing refined", unit="image")
+    # ):
+    #     num = r_frame["id"]
+    #     name = str(num)
+    #     T_mtx = np.array(r_frame["transform_matrix"])
+    #     T_mtx = np.vstack((T_mtx, np.array([0, 0, 0, 1])))
+
+    #     if e % 10 == 0:
+    #         cam_pose_vis.add_camera(T_mtx, color="r", text=None, focal_len_scaled=0.1)
+
+    # cam_pose_vis.add_legend_entry("r", "Refined")
+
     # cam_pose_vis.show()
     # cam_pose_vis.save("test.png")
-    cam_pose_vis = CameraPoseVisualizer(xlim=(-1, 1), ylim=(-1, 1), zlim=(0, 1))
-    with open(
-        os.path.join("camera", "data", "Benchmark_scene1", "transforms.json")
-    ) as f:
-        aruco_dict = json.load(f)
-
-    with open(
-        os.path.join("camera", "data", "Benchmark_scene1", "base_extrinsics.json")
-    ) as f:
-        refined_poses = json.load(f)
-
-    aruco_frames = aruco_dict["frames"]
-    for e, a_frame in enumerate(
-        tqdm(aruco_frames, desc="Processing aruco", unit="image")
-    ):
-        name = a_frame["file_path"].split("/")[-1].split(".")[0]
-        num = int(name)
-        name = str(num)
-        T_mtx = np.array(a_frame["transform_matrix"])
-
-        if e % 10 == 0:
-            cam_pose_vis.add_camera(T_mtx, color="b", text=None, focal_len_scaled=0.1)
-
-    cam_pose_vis.add_legend_entry("b", "Aruco")
-
-    for e, r_frame in enumerate(
-        tqdm(refined_poses, desc="Processing refined", unit="image")
-    ):
-        num = r_frame["id"]
-        name = str(num)
-        T_mtx = np.array(r_frame["transform_matrix"])
-        T_mtx = np.vstack((T_mtx, np.array([0, 0, 0, 1])))
-
-        if e % 10 == 0:
-            cam_pose_vis.add_camera(T_mtx, color="r", text=None, focal_len_scaled=0.1)
-
-    cam_pose_vis.add_legend_entry("r", "Refined")
-
-    cam_pose_vis.show()
-    cam_pose_vis.save("test.png")
