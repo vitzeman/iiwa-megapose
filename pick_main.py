@@ -5,11 +5,13 @@ import time
 import json
 from typing import Tuple, Union
 import copy
+import requests
 
 # 3rd party
 from mlsocket import MLSocket
 import cv2
 import numpy as np
+from scipy.spatial.transform import Rotation as R   
 
 # Mine
 from cluster.Client import get_megapose_estimation
@@ -98,8 +100,218 @@ class Frame_processing(BaslerCamera):
 
         cv2.imshow(self.window_name, frame_vis)
 
-        return should_quit, self.frame, self.bbox, self.idx
+        return should_quit, self.frame, self.bbox, self.idx    
     
+
+class IIWA_tools:
+    def __init__(self, TX, TY, TZ, A, B, C, name):
+        self.TX = TX
+        self.TY = TY
+        self.TZ = TZ
+        self.A = A
+        self.B = B
+        self.C = C
+        self.name = name
+        self.calculateframe()
+
+    def calculateframe(self):
+        RotationMatrix = R.from_euler('zyx', [self.A, self.B, self.C], degrees=True)
+        TranslationMatrix = np.array([self.TX, self.TY, self.TZ]).reshape(3,)
+        TransformationMatrix = np.eye(4)
+
+        TransformationMatrix[:3,:3] = RotationMatrix.as_matrix()
+        TransformationMatrix[:3,3] = TranslationMatrix
+        return TransformationMatrix
+
+class IIWA:
+    def __init__(self, ip):
+        self.ip = ip
+        self._get_cartisian_postion = "http://" + self.ip + ":30000/" + "GetCartesianposition"
+        self._get_joint_positon = "http://" + self.ip + ":30000/" + "GetJointpostion"
+        self._send_cartiesian_position = "http://" + self.ip + ":30000/" + "GotoCartesianposition"
+        self._get_gripper_data = "http://" + self.ip + ":30000/" + "GetGripperpostion"
+        self._senf_joint_position = "http://" + self.ip + ":30000/" + "GotoJointposition"
+        self._close_griper = "http://" + self.ip + ":30000/" + "CloseGripper"
+        self._open_gripper = "http://" + self.ip + ":30000/" + "OpenGripper"
+        self._ready_to_send = "http://" + self.ip + ":30000/" + "ready"
+        self._last_operation = "http://" + self.ip + ":30000/" + "failed"
+        self.tool = {}
+
+    def addTool(self, tool):
+        self.tool[tool.name] = tool.calculateframe()
+
+    def checkReady(self):
+        result = requests.get(url=self._ready_to_send)
+        time.sleep(1.0)
+        result = result.content.decode()
+        return result
+
+    def checkLastOperation(self):
+        result = requests.get(url=self._last_operation)
+        time.sleep(1.0)
+        result = result.content.decode()
+        return result
+
+    def getGripperpos(self):
+        result = requests.get(url=self._get_gripper_data)
+        time.sleep(1.0)
+        result = result.content.decode()
+        return result
+
+    def closeGripper(self, position = 40000, speed = 40000, force = 25000):
+        while self.checkReady() != "OK":
+            pass
+        params = (
+                    "&position=" + str(position)
+                    + "&speed=" + str(speed)
+                    + "&force=" + str(force)
+            )
+        close_operation = self._close_griper + "/?" + params
+        requests.get(url=close_operation)
+        print("closing the gripper")
+        time.sleep(1.0)
+
+    def openGripper(self):
+        while self.checkReady() != "OK":
+            pass
+
+        print("opening the gripper")
+        requests.get(url=self._open_gripper)
+        time.sleep(1.0)
+
+
+
+    def getCartisianPosition(self, tool=None, degree=True, stop=True):
+        if stop:
+            while self.checkReady() != "OK":
+                pass
+
+        result = requests.get(url=self._get_cartisian_postion)
+        time.sleep(1.0)
+        position = json.loads(result.content)
+
+        transformTool = None
+        if tool:
+            transformTool = self.tool[tool.name]
+            position["tool"] = tool.name
+        else:
+            transformTool = np.eye(4)
+            position["tool"] = 'flange'
+
+        RotationMatrix = R.from_euler('zyx', [ position["A"],  position["B"], position["C"]], degrees=False)
+        TranslationMatrix = np.array([position["x"], position["y"], position["z"]]).reshape(3, )
+
+        TransformationMatrixflange = np.eye(4)
+        TransformationMatrixflange[:3, :3] = RotationMatrix.as_matrix()
+        TransformationMatrixflange[:3, 3] = TranslationMatrix
+
+        Transformation = transformTool @ TransformationMatrixflange
+
+        Rot = Transformation[:3, :3]
+        Tra = Transformation[:3, 3]
+
+        angles = R.from_matrix(Rot).as_euler('zyx', degrees=False)
+        position["A"] = angles[0]
+        position["B"] = angles[1]
+        position["C"] = angles[2]
+        position["x"] = Tra[0]
+        position["y"] = Tra[1]
+        position["z"] = Tra[2]
+
+
+        if degree:
+            position["A"] = np.rad2deg(position["A"])
+            position["B"] = np.rad2deg(position["B"])
+            position["C"] = np.rad2deg(position["C"])
+
+        return position
+
+    def getJointPostion(self, degree=True):
+        result = requests.get(url=self._get_joint_positon)
+        time.sleep(1.0)
+        position = json.loads(result.content)
+
+        if degree:
+            position["A1"] = np.rad2deg(position["A1"])
+            position["A2"] = np.rad2deg(position["A2"])
+            position["A3"] = np.rad2deg(position["A3"])
+            position["A4"] = np.rad2deg(position["A4"])
+            position["A5"] = np.rad2deg(position["A5"])
+            position["A6"] = np.rad2deg(position["A6"])
+            position["A7"] = np.rad2deg(position["A7"])
+
+        return position
+
+    def finddestinationframe(self, X, Y, Z, A, B, C, tool):
+        TransformationMatrix = np.eye(4)
+        RotationMatrix = R.from_euler('zyx', [A, B, C], degrees=True)
+        TranslationMatrix = np.array([X, Y, Z]).reshape(3, )
+        TransformationMatrix[:3, :3] = RotationMatrix.as_matrix()
+        TransformationMatrix[:3, 3] = TranslationMatrix
+
+        if tool:
+            transformTool = self.tool[tool.name]
+        else:
+            transformTool = np.eye(4)
+
+        destination = transformTool @ TransformationMatrix
+
+        destRot = destination[:3, :3]
+        destTra = destination[:3, 3]
+
+        result = R.from_matrix(destRot).as_euler('zyx', degrees=True)
+        A = result[0]
+        B = result[1]
+        C = result[2]
+        X = destTra[0]
+        Y = destTra[1]
+        Z = destTra[2]
+
+        return X,Y,Z,A,B,C
+
+    def distancecurdest(self, X, Y,Z, tool):
+        cartpostion = self.getCartisianPosition(tool)
+        time.sleep(1.0)
+        current = np.array(([cartpostion['x'], cartpostion['y'], cartpostion['z']]))
+        dest = np.array((X, Y, Z))
+        distance = np.linalg.norm(current - dest)
+        return distance
+
+
+
+    def sendCartisianPosition(self, X, Y, Z, A, B, C, motion='lin', speed=0.1, tool=None, degree=True):
+        while self.checkReady() != "OK":
+            pass
+
+
+        X,Y,Z,A,B,C = self.finddestinationframe(X, Y, Z, A, B, C, tool)
+
+        tra = (
+                "TX=" + str(X)
+                + "&TY=" + str(Y)
+                + "&TZ=" + str(Z)
+        )
+        if degree:
+            rot = (
+                    "&TA=" + str(np.deg2rad(A))
+                    + "&TB=" + str(np.deg2rad(B))
+                    + "&TC=" + str(np.deg2rad(C))
+            )
+
+        motion_movement = "&Motion=" + motion
+        robot_speed = "&Speed=" + str(speed)
+        s = tra + rot + motion_movement + robot_speed
+
+        send_operation = self._send_cartiesian_position + "/?" + s
+        requests.get(send_operation)
+        time.sleep(1.0)
+
+        last_operation = self.checkLastOperation()
+        if last_operation == "OK":
+
+            return "Going to position"
+        else:
+            return "Cant go to the specified place"
 
 def main():
     # Camera init
@@ -155,5 +367,33 @@ def main():
     cv2.destroyAllWindows()
 
 
+
 if __name__ == "__main__":
-   main()
+#    main()
+    recorded_path = os.path.join("pose_data", "d03_main.json")
+    with open(recorded_path, "r") as f:
+        data = json.load(f)
+
+    print(data)
+
+    pose = np.array(data["pose"])
+    print(pose)
+
+    robot1_ip = "172.31.1.10"
+    robot1 = IIWA(robot1_ip)
+
+
+    # create the tools
+    camera = IIWA_tools(TX=50, TY=0, TZ=0, A=0, B=0, C=0, name='camera')
+    gripper = IIWA_tools(TX=0, TY=0, TZ=200, A=0, B=0, C=0, name='gripper')
+
+    # attach tool to the flange of the robot
+    robot1.addTool(camera)
+    robot1.addTool(gripper)
+
+    robot1.sendCartisianPosition(X=-200, Y=-500, Z=300, A=90, B=0, C=180, motion='ptp', tool=gripper)
+    robot1.sendCartisianPosition(X=-200, Y=-500, Z=300, A=180, B=0, C=180, motion='ptp', tool=gripper)
+    robot1.openGripper()
+    robot1.sendCartisianPosition(X=-200, Y=-500, Z=50, A=180, B=0, C=180, motion='ptp', tool=gripper)
+    robot1.closeGripper(position=23000)
+    robot1.sendCartisianPosition(X=-200, Y=-500, Z=300, A=90, B=0, C=180, motion='ptp', tool=gripper)
