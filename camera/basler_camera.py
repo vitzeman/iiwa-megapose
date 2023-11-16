@@ -96,9 +96,11 @@ class BaslerCamera:
 
         self.save_location = save_location
 
+        self.camera_parameters_path = camera_parametes
+
         if camera_parametes is not None:
-            self.camera_params = self.load_camera_config(
-                path_to_config="camera_config.json"
+            self.load_camera_config(
+                path_to_config=self.camera_parameters_path
             )
         else:
             self.camera_params = None
@@ -169,7 +171,6 @@ class BaslerCamera:
                     logging.warning("Height is float, but not integer. Casting to int.")
                     val = int(val)
                 my_config["h"] = int(val)
-
             elif key in ["w", "W", "width"]:
                 if val < 0:
                     raise ValueError("Width cannot be negative")
@@ -183,7 +184,7 @@ class BaslerCamera:
             elif key in ["K", "camera_matrix"]:
                 if type(val) not in [list, np.ndarray]:
                     raise TypeError("Camera matrix must be a list")
-                my_config["K"] = np.aray(val)
+                my_config["K"] = np.array(val)
             elif key in ["dist", "distortion_coefficients"]:
                 if type(val) not in [list, np.ndarray]:
                     raise TypeError("Distortion coefficients must be a list")
@@ -200,7 +201,8 @@ class BaslerCamera:
                 logging.warning(f"Unknown key in camera configuration file: {key}")
                 my_config[key] = val
 
-        self.camera_params = copy.deepcopy(config)
+        self.camera_params = copy.deepcopy(my_config)
+
 
     def get_camera_config(self):
         """Get camera configuration"""
@@ -280,6 +282,19 @@ class BaslerCamera:
             "w": new_w,
             "h": new_h,
         }
+        ideal_params_path = os.path.join(
+            self.save_location, "ideal_camera_parameters.json"
+        )
+        save = False # TODO implement saving on request
+        if save:
+            with open(ideal_params_path, "w") as f:
+                dict2save = copy.deepcopy(new_ideal_camera_params)
+                for key, val in dict2save.items():
+                    if type(val) == np.ndarray:
+                        dict2save[key] = val.tolist()
+                json.dump(dict2save, f, indent=2)
+
+        return new_ideal_camera_params
 
     def undistort_image(self, image):
         """Undistort image using camera parameters"""

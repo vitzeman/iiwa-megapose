@@ -27,11 +27,11 @@ LABELS = {
 }
 LABELS_NUMS_KEY = [x + 48 for x in LABELS.keys()] # ASCII code for numbers from 1 to 8
 
-
 class Frame_processing(BaslerCamera):
 
-    def __init__(self, serial_number: str = "24380112", camera_parametes: str = None, save_location: str = "") -> None:
+    def __init__(self, serial_number: str = "24380112", camera_parametes: str = os.path.join("camera", "camera_parameters.json"), save_location: str = "") -> None:
         super().__init__(serial_number, camera_parametes, save_location)
+        self.camera_ideal_params = self.get_ideal_camera_parameters()
         
         self.frame = None
         self.bbox = None
@@ -48,18 +48,21 @@ class Frame_processing(BaslerCamera):
 
     def extract_coordinates(self, event, x, y, flags, parameters):
         if event == cv2.EVENT_LBUTTONDOWN:
-            print("Left click")
+            # print("Left click")
             self.bbox = [x, y]
         elif event == cv2.EVENT_LBUTTONUP:
-            print("Left release")
+            # print("Left release")
             self.bbox.extend([x, y])
             self.bbox = np.array(self.bbox)
         elif event == cv2.EVENT_RBUTTONDOWN:
-            print("Right click")
+            # print("Right click")
             self.bbox = None
 
     def proccess_frame(self) ->Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        # TODO: undistor the image
+
         frame = self.get_single_image()
+        frame = self.undistort_image(frame)
         frame_vis = copy.deepcopy(frame)
         key = cv2.waitKey(1) & 0xFF
         should_quit = False
@@ -81,6 +84,9 @@ class Frame_processing(BaslerCamera):
             self.reset()
         elif key == 13: # enter
             self.frame = frame
+            # TODO: does not work for some reason
+            frame_vis = cv2.addWeighted(frame_vis, 0.5, np.zeros_like(frame_vis), 0.5, 0)
+            frame_vis = cv2.putText(frame_vis, f"Running_inference on {LABELS[self.idx[0]]}", (400, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
         if self.idx is None:
             cv2.putText(frame_vis, "Selected object: -", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
@@ -91,6 +97,7 @@ class Frame_processing(BaslerCamera):
             cv2.rectangle(frame_vis, (self.bbox[0], self.bbox[1]), (self.bbox[2], self.bbox[3]), (0, 255, 0), 2)
 
         cv2.imshow(self.window_name, frame_vis)
+
         return should_quit, self.frame, self.bbox, self.idx
 
 
@@ -112,6 +119,8 @@ if __name__ == "__main__":
     while True:
         should_quit, frame, bbox, idx = detector.proccess_frame()
         if should_quit: # Should quit after q is pressed in the window
+            # This will sent data to server to stop the server and close the connection (idx = -1)
+            _ = get_megapose_estimation(ml_socket, np.zeros((3,3,3)), np.zeros((4)), np.array([-1]))
             break
 
         if frame is None or bbox is None or idx is None:
@@ -123,10 +132,12 @@ if __name__ == "__main__":
 
         # Get the pose from megapose running on the cluster 
         pose = get_megapose_estimation(ml_socket, frame, bbox, idx)
+        print(f"Data received: {pose}")
+        detector.reset()
 
-        # Plan the movement of the robot
+        # TODO: Plan the movement of the robot
 
     # Deactivate everything else
-    ml_socket.close()
+    # ml_socket.close()
     detector.disconnect()
     cv2.destroyAllWindows()
