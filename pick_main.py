@@ -99,9 +99,9 @@ class Frame_processing(BaslerCamera):
         cv2.imshow(self.window_name, frame_vis)
 
         return should_quit, self.frame, self.bbox, self.idx
+    
 
-
-if __name__ == "__main__":
+def main():
     # Camera init
     detector = Frame_processing()
     detector.connect()
@@ -132,7 +132,19 @@ if __name__ == "__main__":
 
         # Get the pose from megapose running on the cluster 
         pose = get_megapose_estimation(ml_socket, frame, bbox, idx)
+
+        # Saving the data   
         print(f"Data received: {pose}")
+        recorded_data = {
+            "labl": LABELS[idx[0]],
+            "bbox": bbox.tolist(),
+            "idx": idx.tolist(),
+            "pose": pose.tolist()
+        }
+        cv2.imwrite(os.path.join("pose_data", f"{LABELS[idx[0]]}.png"), frame)
+        with open(os.path.join("pose_data", f"{LABELS[idx[0]]}.json"), "w") as f:
+            json.dump(recorded_data, f, indent=2)
+
         detector.reset()
 
         # TODO: Plan the movement of the robot
@@ -141,3 +153,7 @@ if __name__ == "__main__":
     # ml_socket.close()
     detector.disconnect()
     cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+   main()
