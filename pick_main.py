@@ -3,7 +3,7 @@ import argparse
 import os
 import time
 import json
-from typing import Tuple, Union
+from typing import Any, Tuple, Union
 import copy
 import requests
 
@@ -16,6 +16,7 @@ from scipy.spatial.transform import Rotation as R
 # Mine
 from cluster.Client import get_megapose_estimation
 from camera.basler_camera import BaslerCamera
+from camera.Frame_processor import FrameProcessor
 
 LABELS = {
     1: "d01_controller",
@@ -29,6 +30,21 @@ LABELS = {
 }
 LABELS_NUMS_KEY = [x + 48 for x in LABELS.keys()] # ASCII code for numbers from 1 to 8
 
+def parse_args() -> argparse.Namespace:
+    """Parse command line arguments
+
+    Returns:
+        argparse.Namespace: Parsed arguments
+    """    
+    parser = argparse.ArgumentParser(description="Pick and place")
+    parser.add_argument("-h","--host", type=str, default="10.35.129.250")
+    parser.add_argument("-p","--port", type=int, default=65432)
+
+    return parser.parse_args()
+
+
+# TODO: Maybe move each class to file of its own
+#Frame_proccesing replaced with FrameProcessor
 class Frame_processing(BaslerCamera):
 
     def __init__(self, serial_number: str = "24380112", camera_parametes: str = os.path.join("camera", "camera_parameters.json"), save_location: str = "") -> None:
@@ -60,7 +76,7 @@ class Frame_processing(BaslerCamera):
             # print("Right click")
             self.bbox = None
 
-    def proccess_frame(self) ->Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def proccess_frame(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         # TODO: undistor the image
 
         frame = self.get_single_image()
@@ -104,17 +120,41 @@ class Frame_processing(BaslerCamera):
     
 
 class IIWA_tools:
-    def __init__(self, TX, TY, TZ, A, B, C, name):
-        self.TX = TX
-        self.TY = TY
-        self.TZ = TZ
+    def __init__(self, TX:float, TY:float, TZ:float, A:float, B:float, C:float, name:str):
+        """IIWA tools class to define the tools that are attached to the robot flange
+        rotatation matrix is calculated using zyx euler angles
+
+        Args:
+            TX (float): x translation in mm
+            TY (float): y translation in mm
+            TZ (float): z translation in mm
+            A (float): rotation around z axis in degrees
+            B (float): rotation around y axis in degrees
+            C (float): rotation around x axis in degrees
+            name (str): Name of the tool
+        """         
+        self.TX = TX # mm
+        self.TY = TY # mm
+        self.TZ = TZ # mm
         self.A = A
         self.B = B
         self.C = C
         self.name = name
-        self.calculateframe()
+        # Why is this here? 
+        self.calculateframe() 
 
-    def calculateframe(self):
+    def __repr__(self) -> str:
+        return f"Tool: {self.name}, TX: {self.TX}, TY: {self.TY}, TZ: {self.TZ}, A: {self.A}, B: {self.B}, C: {self.C}"
+
+    def __str__(self):
+        return self.name
+
+    def calculateframe(self) -> np.ndarray:
+        """ #TODO : Docstring for calculateframe.
+
+        Returns:
+            np.ndarray: Transformation matrix of the tool
+        """        
         RotationMatrix = R.from_euler('zyx', [self.A, self.B, self.C], degrees=True)
         TranslationMatrix = np.array([self.TX, self.TY, self.TZ]).reshape(3,)
         TransformationMatrix = np.eye(4)
@@ -124,6 +164,8 @@ class IIWA_tools:
         return TransformationMatrix
 
 class IIWA:
+    """ IIWA class to control the robot KMR troght http requests to the robot
+    """    
     def __init__(self, ip):
         self.ip = ip
         self._get_cartisian_postion = "http://" + self.ip + ":30000/" + "GetCartesianposition"
@@ -137,10 +179,20 @@ class IIWA:
         self._last_operation = "http://" + self.ip + ":30000/" + "failed"
         self.tool = {}
 
-    def addTool(self, tool):
+    def addTool(self, tool:IIWA_tools):
+        """ Add tool to the robot
+
+        Args:
+            tool (IIWA_tools): Tool to be added
+        """        
         self.tool[tool.name] = tool.calculateframe()
 
     def checkReady(self):
+        """ Check if the robot is ready to receive new commands
+
+        Returns:
+            _type_: _description_
+        """        
         result = requests.get(url=self._ready_to_send)
         time.sleep(1.0)
         result = result.content.decode()
@@ -181,7 +233,17 @@ class IIWA:
 
 
 
-    def getCartisianPosition(self, tool=None, degree=True, stop=True):
+    def getCartisianPosition(self, tool:IIWA_tools=None, degree:bool=True, stop:bool=True) -> dict:
+        """#TODO : Docstring for getCartisianPosition.
+
+        Args:
+            tool (IIWA_tools, optional): _description_. Defaults to None.
+            degree (bool, optional): _description_. Defaults to True.
+            stop (bool, optional): _description_. Defaults to True.
+
+        Returns:
+            dict: _description_
+        """            
         if stop:
             while self.checkReady() != "OK":
                 pass
@@ -226,7 +288,7 @@ class IIWA:
 
         return position
 
-    def getJointPostion(self, degree=True):
+    def getJointPostion(self, degree:bool=True):
         result = requests.get(url=self._get_joint_positon)
         time.sleep(1.0)
         position = json.loads(result.content)
@@ -277,11 +339,40 @@ class IIWA:
         distance = np.linalg.norm(current - dest)
         return distance
 
-
-
-    def sendCartisianPosition(self, X, Y, Z, A, B, C, motion='lin', speed=0.1, tool=None, degree=True):
+    def wait2ready(self) -> None:
+        """ Wait until the robot is ready that is mainly waiting for the robot to stop moving
+        """        
         while self.checkReady() != "OK":
             pass
+        print("Ready to go")
+
+
+    def sendCartisianPosition(self, X:float, Y:float, Z:float, A:float, B:float, C:float, motion:str='lin', speed:float=0.1, tool:IIWA_tools=None, degree:bool=True, desc:str=None) -> str:
+        """_summary_
+
+        Args:
+            X (float): _description_
+            Y (float): _description_
+            Z (float): _description_
+            A (float): _description_
+            B (float): _description_
+            C (float): _description_
+            motion (str, optional): _description_. Defaults to 'lin'.
+            speed (float, optional): _description_. Defaults to 0.1.
+            tool (IIWA_tools, optional): _description_. Defaults to None.
+            degree (bool, optional): _description_. Defaults to True.
+            desc (str, optional): Additional descriptin. Defaults to None.
+
+        Returns:
+            str: _description_
+        """        
+        while self.checkReady() != "OK":
+            pass
+
+        if desc:
+            print(desc)
+
+        print(f"Sending cartisian position: X={X:.2f}, Y={Y:.2f}, Z={Z:.2f}, A={A:.2f}, B={B:.2f}, C={C:.2f}, tool={tool}, motion={motion}, speed={speed}")
 
 
         X,Y,Z,A,B,C = self.finddestinationframe(X, Y, Z, A, B, C, tool)
@@ -312,12 +403,77 @@ class IIWA:
             return "Going to position"
         else:
             return "Cant go to the specified place"
+        
 
-def main():
-    # Camera init
-    detector = Frame_processing()
+def frame_processing_test():
+    """Test function for FrameProcessor class"""
+    detector = FrameProcessor()
     detector.connect()
     detector.adjust_camera()
+
+    while True:
+        should_quit, frame, bbox, idx = detector.proccess_frame()
+        if should_quit:
+            break
+        if frame is not None or bbox is not None or idx is not None:
+            time.sleep(5)
+
+    cv2.destroyAllWindows()
+    detector.disconnect()
+
+
+def movement_test():
+    """Test function for movement of the robot"""
+    recorded_path = os.path.join("pose_data", "d03_main.json")
+    with open(recorded_path, "r") as f:
+        data = json.load(f)
+
+    print(data)
+
+    pose = np.array(data["pose"])
+    print(pose)
+
+    robot1_ip = "172.31.1.10"
+    robot1 = IIWA(robot1_ip)
+
+
+    # create the tools
+    # camera = IIWA_tools(TX=50, TY=0, TZ=0, A=0, B=0, C=0, name='camera')
+    # gripper = IIWA_tools(TX=0, TY=0, TZ=200, A=0, B=0, C=0, name='gripper')
+
+    iiwa_camera = IIWA_tools(TX=0, TY=0, TZ=0, A=0, B=0, C=0, name='camera')
+    iiwa_gripper = IIWA_tools(TX=15, TY=0, TZ=230, A=0, B=0, C=0, name='gripper') # Tz = 230 for now 226 for touching the table
+
+    # attach tool to the flange of the robot
+    robot1.addTool(iiwa_camera)
+    robot1.addTool(iiwa_gripper)
+
+
+    robot1.sendCartisianPosition(X=-200, Y=-500, Z=100, A=0, B=0, C=180, motion='ptp', tool=iiwa_gripper)
+
+    robot1.wait2ready()
+
+
+
+
+    # robot1.sendCartisianPosition(X=-200, Y=-500, Z=300, A=90, B=0, C=180, motion='ptp', tool=gripper)
+    # robot1.sendCartisianPosition(X=-200, Y=-500, Z=300, A=180, B=0, C=180, motion='ptp', tool=gripper)
+    # robot1.openGripper()
+    # robot1.sendCartisianPosition(X=-200, Y=-500, Z=50, A=180, B=0, C=180, motion='ptp', tool=gripper)
+    # robot1.closeGripper(position=23000)
+    # robot1.sendCartisianPosition(X=-200, Y=-500, Z=300, A=90, B=0, C=180, motion='ptp', tool=gripper)
+    # robot1.wait2ready() # THis will ensure that the robot is ready to go to the next position
+
+
+
+# THIS SHOULD BE THE MAIN FUNCTION
+def main():
+    # Camera init
+    # detector = Frame_processing()
+    detector = FrameProcessor()
+    detector.connect()
+    detector.adjust_camera()
+    detector.camera
 
     # TODO: Add parser for the host and port
     # Server comunication init
@@ -359,7 +515,9 @@ def main():
 
         detector.reset()
 
-        # TODO: Plan the movement of the robot
+        # TODO: Plan the movement of the robot based on the pose 
+
+
 
     # Deactivate everything else
     # ml_socket.close()
@@ -367,33 +525,7 @@ def main():
     cv2.destroyAllWindows()
 
 
-
 if __name__ == "__main__":
-#    main()
-    recorded_path = os.path.join("pose_data", "d03_main.json")
-    with open(recorded_path, "r") as f:
-        data = json.load(f)
-
-    print(data)
-
-    pose = np.array(data["pose"])
-    print(pose)
-
-    robot1_ip = "172.31.1.10"
-    robot1 = IIWA(robot1_ip)
-
-
-    # create the tools
-    camera = IIWA_tools(TX=50, TY=0, TZ=0, A=0, B=0, C=0, name='camera')
-    gripper = IIWA_tools(TX=0, TY=0, TZ=200, A=0, B=0, C=0, name='gripper')
-
-    # attach tool to the flange of the robot
-    robot1.addTool(camera)
-    robot1.addTool(gripper)
-
-    robot1.sendCartisianPosition(X=-200, Y=-500, Z=300, A=90, B=0, C=180, motion='ptp', tool=gripper)
-    robot1.sendCartisianPosition(X=-200, Y=-500, Z=300, A=180, B=0, C=180, motion='ptp', tool=gripper)
-    robot1.openGripper()
-    robot1.sendCartisianPosition(X=-200, Y=-500, Z=50, A=180, B=0, C=180, motion='ptp', tool=gripper)
-    robot1.closeGripper(position=23000)
-    robot1.sendCartisianPosition(X=-200, Y=-500, Z=300, A=90, B=0, C=180, motion='ptp', tool=gripper)
+    # main()
+    # frame_processing_test()
+    movement_test()
