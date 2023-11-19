@@ -8,7 +8,6 @@ After connecting to the cluster, run the following commands
 conda activate megapose
 cd ~/Projects/megapose6d
 python Server.py
- 
 ```
 
 ## 2. **robot KMR**
