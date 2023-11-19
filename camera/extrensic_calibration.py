@@ -154,9 +154,9 @@ def extrensic_calibration(folder) -> np.ndarray:
     print(t_cam2flange.flatten())
 
     transformation_dict = {
-        "zyx_angles": angles.tolist(),
         "translation": t_cam2flange.flatten().tolist(),
         "Rotation_matrix": R_cam2flange.tolist(),
+        "zyx_angles_deg": angles.tolist(),
     }
 
     # Compute reprojection error

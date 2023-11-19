@@ -20,12 +20,15 @@ LABELS = {
     8: "d08_chassis",
 }
 LABELS_NUMS_KEY = [x + 48 for x in LABELS.keys()] # ASCII code for numbers from 1 to 8
+ASCII_NUM_SHIFT = 48 # ASCII code for 0
 
 class FrameProcessor(BaslerCamera):
-    """Class for processing frames(visualization and manual input of bbox and classification)
+    """Class for processing frames(manual input of bbox and object type) from camera.
+    Also does the visualization of the process.
+    Inherits from BaslerCamera class.
     """    
 
-    def __init__(self, serial_number: str = "24380112", camera_parametes: str = os.path.join("camera", "camera_parameters.json"), save_location: str = "") -> None:
+    def __init__(self, serial_number: str = "24380112", camera_parametes: str = os.path.join( "camera_parameters.json"), save_location: str = "") -> None:
         super().__init__(serial_number, camera_parametes, save_location)
         self.camera_ideal_params = self.get_ideal_camera_parameters()
         
@@ -54,33 +57,46 @@ class FrameProcessor(BaslerCamera):
             # print("Right click")
             self.bbox = None
 
-    def proccess_frame(self) ->Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def proccess_frame(self) ->Tuple[bool, np.ndarray, np.ndarray, np.ndarray]:
+        """Method to process frame from camera. Gets frame, undistorts it, 
+        shows it to user and waits for user to select object and bbox.
+        After that returns frame, bbox and object type.
+
+        Returns:
+            Tuple[bool, np.ndarray, np.ndarray, np.ndarray]: user input to quit, frame(), bounding box(4,) and object type(1,)
+        """        
         frame = self.get_single_image()
         frame = self.undistort_image(frame)
         frame_vis = copy.deepcopy(frame)
+        print(frame.shape) # TODO: remove hera and update the docstring
         key = cv2.waitKey(1) & 0xFF
         should_quit = False
         if key == ord("q"):
             should_quit = True
         elif key == ord("h"): #help
-            print("q - quit NOT IMPLEMENTED")
-            print("h - help")
-            print("To select object press number from 1 to 8")
+            print("#--HELP------------------------------------------------------#")
+            print("q -> quit")
+            print("h -> help")
+            print("r -> reset")
+            print("1-8 -> select object:")
             for key, value in LABELS.items():
-                print(f"  {value} - {key}")
-            print("To set bbox click on the image and drag the mouse - NOT IMPLEMENTED")
-            print("To confirm press Enter")
-            print("To reset press r")
+                print(f"    {key} - {value}")
+            print("To set bbox click on the image and drag the mouse")
+            print("To confirm and run the inference press Enter")
+            print("#------------------------------------------------------------#")
         elif key in LABELS_NUMS_KEY:
-            self.idx = np.array([key - 48]) # Convert ASCII code to number
+            self.idx = np.array([key - ASCII_NUM_SHIFT]) # Convert ASCII code to number
             print(f"Selected object: {LABELS[self.idx[0]]}")
         elif key == ord("r"):
             self.reset()
         elif key == 13: # enter
-            self.frame = frame
-            # TODO: does not work for some reason
-            frame_vis = cv2.addWeighted(frame_vis, 0.5, np.zeros_like(frame_vis), 0.5, 0)
-            frame_vis = cv2.putText(frame_vis, f"Running_inference on {LABELS[self.idx[0]]}", (400, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            if self.idx is None or self.bbox is None:
+                print("Please select object and bbox")
+            else:
+                self.frame = frame
+                # TODO: does not work for some reason
+                frame_vis = cv2.addWeighted(frame_vis, 0.5, np.zeros_like(frame_vis), 0.5, 0)
+                frame_vis = cv2.putText(frame_vis, f"Running_inference on {LABELS[self.idx[0]]}", (400, 400), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
         if self.idx is None:
             cv2.putText(frame_vis, "Selected object: -", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
@@ -88,7 +104,7 @@ class FrameProcessor(BaslerCamera):
             cv2.putText(frame_vis, f"Selected object: {LABELS[self.idx[0]]}", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
         
         if self.bbox is not None and len(self.bbox) == 4:
-            cv2.rectangle(frame_vis, (self.bbox[0], self.bbox[1]), (self.bbox[2], self.bbox[3]), (0, 255, 0), 2)
+            cv2.rectangle(frame_vis, (self.bbox[0], self.bbox[1]), (self.bbox[2], self.bbox[3]), (0, 255, 0), 5)
 
         cv2.imshow(self.window_name, frame_vis)
 
