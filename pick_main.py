@@ -511,7 +511,7 @@ def movement_test():
     # camera = IIWA_tools(TX=50, TY=0, TZ=0, A=0, B=0, C=0, name='camera')
     # gripper = IIWA_tools(TX=0, TY=0, TZ=200, A=0, B=0, C=0, name='gripper')
 
-    iiwa_camera = IIWA_tools(TX=0, TY=0, TZ=0, A=0, B=0, C=0, name="camera")
+    iiwa_camera = IIWA_tools(TX=3, TY=-90, TZ=-15, A=0, B=0, C=0, name="camera")
     iiwa_gripper = IIWA_tools(
         TX=15, TY=0, TZ=230, A=0, B=0, C=0, name="gripper"
     )  # Tz = 230 for now 226 for touching the table
@@ -520,8 +520,12 @@ def movement_test():
     robot1.addTool(iiwa_camera)
     robot1.addTool(iiwa_gripper)
 
+    robot1.closeGripper(position=0)
     robot1.sendCartisianPosition(
-        X=-200, Y=-500, Z=100, A=0, B=0, C=180, motion="ptp", tool=iiwa_gripper
+        X=-200, Y=-500, Z=300, A=0, B=0, C=180, motion="ptp", tool=iiwa_gripper
+    )
+    robot1.sendCartisianPosition(
+        X=-200, Y=-500, Z=300, A=0, B=0, C=180, motion="ptp", tool= iiwa_camera
     )
 
     robot1.wait2ready()
