@@ -350,6 +350,9 @@ def manually_capture_images(
     cv2.namedWindow("image", cv2.WINDOW_NORMAL)
     while True:
         image = camera.get_single_image()
+        w,h, _ = image.shape
+
+        cv2.circle(image, (h//2, w//2), 10, (0, 0, 255), -1)
 
         cv2.imshow("image", image)
 

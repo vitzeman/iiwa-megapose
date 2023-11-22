@@ -76,7 +76,7 @@ class FrameProcessor(BaslerCamera):
         frame = self.get_single_image()
         frame = self.undistort_image(frame)
         frame_vis = copy.deepcopy(frame)
-        print(frame.shape)  # TODO: remove hera and update the docstring
+        # print(frame.shape)  # TODO: remove hera and update the docstring 2035x2441x3
         key = cv2.waitKey(1) & 0xFF
         should_quit = False
         if key == ord("q"):

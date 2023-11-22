@@ -46,6 +46,60 @@ def parse_args() -> argparse.Namespace:
 
 # TODO: Maybe move each class to file of its own
 # Frame_proccesing replaced with FrameProcessor
+
+def convert2TransfMatrix(TX, TY, TZ, A, B, C):
+
+    RotationMatrix = R.from_euler("zyx", [A, B, C], degrees=True)
+    TranslationMatrix = np.array([TX, TY, TZ]).reshape(3,)
+    TransformationMatrix = np.eye(4)
+
+    TransformationMatrix[:3, :3] = RotationMatrix.as_matrix()
+    TransformationMatrix[:3, 3] = TranslationMatrix
+    return TransformationMatrix
+
+def translquat2transf(translation, quaternion,scale=1):
+
+    RotationMatrix = R.from_quat(quaternion)
+    
+    # varun edit 
+    # rot_angle = R.from_matrix(RotationMatrix.as_matrix()).as_euler("xyz", degrees=True)
+    # print(rot_angle)
+    # RotationMatrix = R.from_euler("zyx", rot_angle, degrees=True)
+    TranslationMatrix = np.array(translation).reshape(3,) * scale
+    TransformationMatrix = np.eye(4)
+
+    TransformationMatrix[:3, :3] = RotationMatrix.as_matrix()
+    TransformationMatrix[:3, 3] = TranslationMatrix
+    return TransformationMatrix
+
+
+def translaxisangle2transf(translation, axis, angle):
+
+    RotationMatrix = R.from_rotvec(axis*angle)
+    TranslationMatrix = np.array(translation).reshape(3,)
+    TransformationMatrix = np.eye(4)
+
+    TransformationMatrix[:3, :3] = RotationMatrix.as_matrix()
+    TransformationMatrix[:3, 3] = TranslationMatrix
+    return TransformationMatrix
+
+
+def transf2TxTyTzABC(transf):
+
+    Rot = transf[:3, :3]
+    Tra = transf[:3, 3]
+
+    angles = R.from_matrix(Rot).as_euler("zyx", degrees=True)
+    A = angles[0]
+    B = angles[1]
+    C = angles[2]
+    X = Tra[0]
+    Y = Tra[1]
+    Z = Tra[2]
+
+    return X, Y, Z, A, B, C
+
+
 class Frame_processing(BaslerCamera):
     def __init__(
         self,
@@ -495,25 +549,25 @@ def frame_processing_test():
 
 def movement_test():
     """Test function for movement of the robot"""
-    recorded_path = os.path.join("pose_data", "d03_main.json")
-    with open(recorded_path, "r") as f:
-        data = json.load(f)
+    # recorded_path = os.path.join("pose_data", "d03_main.json")
+    # with open(recorded_path, "r") as f:
+    #     data = json.load(f)
 
-    print(data)
+    # print(data)
 
-    pose = np.array(data["pose"])
-    print(pose)
+    # pose = np.array(data["pose"])
+    # print(pose)
 
     robot1_ip = "172.31.1.10"
     robot1 = IIWA(robot1_ip)
 
     # create the tools
-    # camera = IIWA_tools(TX=50, TY=0, TZ=0, A=0, B=0, C=0, name='camera')
-    # gripper = IIWA_tools(TX=0, TY=0, TZ=200, A=0, B=0, C=0, name='gripper')
+    camera = IIWA_tools(TX=50, TY=0, TZ=0, A=0, B=0, C=0, name='camera')
+    gripper = IIWA_tools(TX=0, TY=0, TZ=200, A=0, B=0, C=0, name='gripper')
 
     iiwa_camera = IIWA_tools(TX=3, TY=-90, TZ=-15, A=0, B=0, C=0, name="camera")
     iiwa_gripper = IIWA_tools(
-        TX=15, TY=0, TZ=230, A=0, B=0, C=0, name="gripper"
+        TX=0, TY=0, TZ=230, A=0, B=0, C=0, name="gripper"
     )  # Tz = 230 for now 226 for touching the table
 
     # attach tool to the flange of the robot
@@ -522,10 +576,18 @@ def movement_test():
 
     robot1.closeGripper(position=0)
     robot1.sendCartisianPosition(
-        X=-200, Y=-500, Z=300, A=0, B=0, C=180, motion="ptp", tool=iiwa_gripper
+        X=-200, Y=-500, Z=500, A=90, B=0, C=180, motion="ptp", tool=None 
     )
+    # robot1.sendCartisianPosition(
+    #     X=-100, Y=-550, Z=100, A=90, B=0, C=180, motion="ptp", tool=iiwa_gripper
+    # )
+
     robot1.sendCartisianPosition(
-        X=-200, Y=-500, Z=300, A=0, B=0, C=180, motion="ptp", tool= iiwa_camera
+        X=-200, Y=-500, Z=500, A=90, B=0, C=180, motion="ptp", tool=None 
+    )
+
+    robot1.sendCartisianPosition(
+        X=-200, Y=-500, Z=500, A=90, B=0, C=180, motion="ptp", tool=None
     )
 
     robot1.wait2ready()
@@ -539,31 +601,157 @@ def movement_test():
     # robot1.wait2ready() # THis will ensure that the robot is ready to go to the next position
 
 
+def print_transf(T):
+
+    t = T[:3, 3]
+    A,B,C = R.from_matrix(T[:3, :3]).as_euler("zyx", degrees=True)
+
+    print(f"Transformation in x y z [mm] and rotation in ZYX euler:")
+    print(f"\tTx: {t[0]:.2f}, Ty: {t[1]:.2f}, Tz: {t[2]:.2f}, A: {A:.2f}, B: {B:.2f}, C: {C:.2f}")
+
+
+
+def debug_transformations():
+    #Flange
+    f_Tx, f_Ty, f_Tz = [-200, -500, 500]
+    f_A, f_B, f_C = [90, 0, 180]
+    T_W2F = convert2TransfMatrix(f_Tx, f_Ty, f_Tz, f_A, f_B, f_C)
+    print_transf(T_W2F)
+
+
+    #Camera from Flange
+    c_A, c_B, c_C = [0.45479412757838633,-0.8090880725702911,-0.5027631332617288]
+    c_TX, c_TY, C_TZ = [6.570145950404226, -91.7642682003743, -13.340081274755768]
+    T_C2F = convert2TransfMatrix(c_TX, c_TY, C_TZ, c_A, c_B, c_C)
+    T_F2C = np.linalg.inv(T_C2F)
+    print_transf(T_F2C)
+
+    T_W2C = T_W2F @ T_F2C
+    print("T_W2C")
+    print_transf(T_W2C) # THIS IS PROBABLY OK
+    print("-")
+    #Camera from Ob
+    megapose_dict = json.load(open("pose_data/d03_main.json", "r"))
+    megapose_pose = megapose_dict["pose"]
+    q_C2Ob = megapose_pose[:4]
+    t_C2Ob = megapose_pose[4:]
+    T_C2Ob = translquat2transf(translation=t_C2Ob, quaternion=q_C2Ob, scale=1000)
+    
+
+    # T_C2Ob = np.linalg.inv(T_C2Ob)
+
+    # T_W2Ob = T_W2F @ T_F2C @ T_C2Ob
+    # print_transf(T_W2Ob)
+    T_W2Ob = T_W2C @ T_C2Ob
+    print_transf(T_W2Ob)
+
+
+    # #Ob from Og
+    main_trl = np.array([-2.9,18.7,14.27])
+    main_axis = np.array([0.59,0.58,-0.56])
+    main_angle = 121.76
+    T_Ob2Og = translaxisangle2transf(main_trl, main_axis, main_angle)
+    # T_Ob2Og = np.linalg.inv(T_Ob2Og)
+
+    T_x180 = np.eye(4)
+    T_x180[:3, :3] = R.from_euler("zyx", [0, 0, 180], degrees=True).as_matrix()
+        
+
+    T_W2Og = T_W2F @ T_F2C @ T_C2Ob @ T_Ob2Og @ T_x180
+    # print_transf(T_W2Og)
+    print("fin")
+    print_transf(T_W2Og)
+
+
 # THIS SHOULD BE THE MAIN FUNCTION
-def main():
+def main(robot_on: bool = True, server_on: bool = True):
     # Camera init
     # detector = Frame_processing()
+    print("Initializing camera")
     detector = FrameProcessor()
     detector.connect()
     detector.adjust_camera()
     detector.camera
+    print("Camera initialized")
+
+    c_A, c_B, c_C = [0,0,0]
+    c_TX, c_TY, c_TZ = [0, -91.7642682003743, 60]
+
+    iiwa_camera = IIWA_tools(TX=c_TX, TY=c_TY, TZ=c_TZ, A=c_A, B=c_B, C=c_C, name="camera")
+    iiwa_gripper = IIWA_tools(TX=0, TY=0, TZ=230, A=0, B=0, C=0, name="gripper")
+
+    # Viewing position
+    v_Tx, v_Ty, v_Tz = [-200, -500, 500]
+    v_A, v_B, v_C = [90, 0, 180]
+
+    print("Initializing robot")
+
+    if robot_on:
+        robot1_ip = "172.31.1.10"
+        iiwa = IIWA(robot1_ip)
+        iiwa.addTool(iiwa_camera)
+        iiwa.addTool(iiwa_gripper)
+
+        pos= iiwa.getCartisianPosition(tool=None)
+        print(pos)
+        iiwa.openGripper()
+
+    
+        # iiwa.sendCartisianPosition(X=v_Tx, Y=v_Ty, Z=v_Tz, A=v_A, B=v_B, C=v_C, motion='ptp', tool=None)
+        # print(iiwa.getCartisianPosition(tool=None))
+
+        # iiwa.sendCartisianPosition(X=v_Tx, Y=v_Ty+100, Z=v_Tz, A=v_A, B=v_B, C=v_C, motion='ptp', tool=None)
+        # print(iiwa.getCartisianPosition(tool=None))
+
+        iiwa.sendCartisianPosition(X=v_Tx, Y=v_Ty, Z=v_Tz, A=v_A, B=v_B, C=v_C, motion='ptp', tool=None)
+        print(iiwa.getCartisianPosition(tool=None))
+
+
+    
+    #TODO: Rename the functions
+
+
+    # T_W2F = convert2TransfMatrix(v_Tx, v_Ty, v_Tz, v_A, v_B, v_C)
+    # T_C2F = convert2TransfMatrix(c_TX, c_TY, c_TZ, c_A, c_B, c_C)
+
+    # T_F2C = np.linalg.inv(T_C2F)
+    T_f2W = np.eye(4)
+    T_f2W[:3, 3] = np.array([-200, -500, 500])
+    T_f2W[:3, :3] = R.from_euler('ZYX', [90, 0, 180], degrees=True).as_matrix()
+
+    camera_transformation = np.eye(4)
+    camera_translation = np.array([3, -90, 60])
+    camera_rotation = np.array([0, 0, 0])
+    camera_transformation[:3, :3] = R.from_euler('zyx', camera_rotation, degrees=True).as_matrix()
+    camera_transformation[:3, 3] = camera_translation
+
+    camera_position = np.matmul(T_f2W, camera_transformation)
+    print("camera postion in world space")
+    print(camera_position)
+    camera_position = np.linalg.inv(camera_position)
+    print("world postion in camera frame")
+    print(camera_position)
+
+
 
     # TODO: Add parser for the host and port
     # Server comunication init
-    ml_socket = MLSocket()
-    host = "10.35.129.250"
-    port = 65432
-    ml_socket.connect((host, port))
-    print(f"Connection to {host}:{port} established")
+    if server_on:
+        ml_socket = MLSocket()
+        host = "10.35.129.250"
+        port = 65432
+        ml_socket.connect((host, port))
+        print(f"Connection to {host}:{port} established")
 
     # Main loop
     while True:
         should_quit, frame, bbox, idx = detector.proccess_frame()
         if should_quit:  # Should quit after q is pressed in the window
             # This will sent data to server to stop the server and close the connection (idx = -1)
-            _ = get_megapose_estimation(
-                ml_socket, np.zeros((3, 3, 3)), np.zeros((4)), np.array([-1])
-            )
+            if server_on: # Turns off the server
+                _ = get_megapose_estimation(
+                    ml_socket, np.zeros((3, 3, 3)), np.zeros((4)), np.array([-1])
+                )
             break
 
         if frame is None or bbox is None or idx is None:
@@ -578,23 +766,101 @@ def main():
             continue
 
         # Get the pose from megapose running on the cluster
-        pose = get_megapose_estimation(ml_socket, frame, bbox, idx)
+        if server_on:
+            pose = get_megapose_estimation(ml_socket, frame, bbox, idx)
 
-        # Saving the data
-        print(f"Data received: {pose}")
-        recorded_data = {
-            "labl": LABELS[idx[0]],
-            "bbox": bbox.tolist(),
-            "idx": idx.tolist(),
-            "pose": pose.tolist(),
-        }
-        cv2.imwrite(os.path.join("pose_data", f"{LABELS[idx[0]]}.png"), frame)
-        with open(os.path.join("pose_data", f"{LABELS[idx[0]]}.json"), "w") as f:
-            json.dump(recorded_data, f, indent=2)
-
-        detector.reset()
+# 
+            # Saving the data
+            print(f"Data received: {pose}")
+            recorded_data = {
+                "label": LABELS[idx[0]],
+                "bbox": bbox.tolist(),
+                "idx": idx.tolist(),
+                "pose": pose.tolist(),
+            }
+            cv2.imwrite(os.path.join("pose_data", f"{LABELS[idx[0]]}.png"), frame)
+            with open(os.path.join("pose_data", f"{LABELS[idx[0]]}.json"), "w") as f:
+                json.dump(recorded_data, f, indent=2)
+        else: 
+            pose = np.array([0.666650741493408,
+                    -0.01583200306880535,
+                    -0.000888065233182203,
+                    0.7452015372812825,
+                    -0.0036940101999789476,
+                    -0.014647329226136208,
+                    0.35705795884132385 ]) # TODO: this is shit
+            
+        # object_tranlation = np.array([0,-10, 350])
+        object_rotation = R.from_quat(np.array([pose[0], pose[1], pose[2], pose[3]])).as_euler(seq="zyx")
+        # object_rotation = object_rotation.to_euler()
+        object_matrix = np.eye(4)
+        object_matrix[:3, 3] = pose[4:] * 1000
+        object_matrix[:3, :3] = R.from_euler('zyx', object_rotation, degrees=True).as_matrix()
+        print("object in camera frame")
+        print(object_matrix)
 
         # TODO: Plan the movement of the robot based on the pose
+        # q_C2Ob = pose[:4]
+        # t_C2Ob = pose[4:]
+        # T_C2Ob = translquat2transf(translation=t_C2Ob, quaternion=q_C2Ob, scale=1000)
+        # print("MEGAPOSE")
+        # print_transf(T_C2Ob)
+        # print("------")
+        # print("object pose", T_C2Ob)
+        # T_C2Ob = np.linalg.inv(T_C2Ob)
+        # print("camera_ pose", T_C2Ob)
+
+        # T_C2Ob = convert2TransfMatrix(0, 0, 460, 90, 0,0)
+
+        #  TODO: now hardcoded for the main
+        # Add based on the label
+        # main_trl = np.array([-2.9,18.7,14.27])
+        # main_axis = np.array([0.59,0.58,-0.56])
+        # main_angle = 121.76
+        # T_Ob2Og = translaxisangle2transf(main_trl, main_axis, main_angle)
+
+        # T_x180 = np.eye(4)
+        # T_x180[:3, :3] = R.from_euler("zyx", [0, 0, 180], degrees=True).as_matrix()
+        
+        # Kinematioc chain
+        # This is to the original gripping position
+        # T_W2Og = T_W2F @ T_F2C @ T_C2Ob @ T_Ob2Og 
+        # Og_Tx, Og_Ty, Og_Tz, Og_A, Og_B, Og_C = transf2TxTyTzABC(T_W2Og)
+        # print(f"1: Sending cartisian position: X={Og_Tx:.2f}, Y={Og_Ty:.2f}, Z={Og_Tz:.2f}, A={Og_A:.2f}, B={Og_B:.2f}, C={Og_C:.2f}, tool={iiwa_gripper}, motion=ptp, speed=0.1")
+        # T_W2Og = T_W2F @ T_F2C @ T_C2Ob @ T_Ob2Og @ T_x180
+        # T_W2Og = T_W2F @ T_F2C
+        # print_transf(T_W2Og)
+        # T_W2Og = T_W2F @ T_F2C @ T_C2Ob
+        # print_transf(T_W2Og)
+
+        # T_W2Og = T_W2F @ T_F2C @ T_C2Ob
+
+        T_W2Og = np.matmul(np.linalg.inv(camera_position), object_matrix)
+
+        Og_Tx, Og_Ty, Og_Tz, Og_A, Og_B, Og_C = transf2TxTyTzABC(T_W2Og)
+        # print(f"Sending cartisian position: X={Og_Tx:.2f}, Y={Og_Ty:.2f}, Z={Og_Tz:.2f}, A={Og_A:.2f}, B={Og_B:.2f}, C={Og_C:.2f}, tool={iiwa_gripper}, motion=ptp, speed=0.1")
+        # print(np.linalg.inv(T_W2Og))
+
+        # print(f"Sending cartisian position: X={Og_Tx:.2f}, Y={Og_Ty:.2f}, Z={Og_Tz:.2f}, A={Og_A:.2f}, B={Og_B:.2f}, C={Og_C:.2f}")
+
+        if robot_on:
+            print( "megapose pose", pose)
+            # iiwa.sendCartisianPosition(X= -200 - (pose[4] * 1000)  -91.7642682003743 ,
+            #                             Y= -500 - (pose[5] * 1000),
+            #                             Z= 500 -(pose[6] * 1000) - 60 + 230,
+            #                              A=90, B=0, C=180, motion='ptp', tool=None)
+
+            iiwa.sendCartisianPosition(X= Og_Tx ,
+                                        Y= Og_Ty,
+                                        Z= Og_Tz,
+                                A=Og_A, B=0, C=180, motion='ptp', tool=iiwa_gripper)
+            print(iiwa.getCartisianPosition(tool=None))
+
+            print("Sending to home")
+            iiwa.sendCartisianPosition(X=v_Tx, Y=v_Ty, Z=v_Tz, A=v_A, B=v_B, C=v_C, motion='ptp', tool=None)
+
+        detector.reset()
+        print("Finished")
 
     # Deactivate everything else
     # ml_socket.close()
@@ -602,7 +868,10 @@ def main():
     cv2.destroyAllWindows()
 
 
+
 if __name__ == "__main__":
-    # main()
+    main(robot_on=True, server_on=True)
     # frame_processing_test()
-    movement_test()
+    # movement_test()
+
+    # debug_transformations()
