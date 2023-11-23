@@ -61,6 +61,7 @@ class FrameProcessor(BaslerCamera):
             # print("Left release")
             self.bbox.extend([x, y])
             self.bbox = np.array(self.bbox)
+            print(f"Selected bbox: {self.bbox}")
         elif event == cv2.EVENT_RBUTTONDOWN:
             # print("Right click")
             self.bbox = None
