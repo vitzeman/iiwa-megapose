@@ -1007,7 +1007,11 @@ def main(robot_on: bool = True, server_on: bool = True):
             print(succes_report)
             print(iiwa.getCartisianPosition(tool=None))
 
+            # NOTE: For now
+            # d08_chassis == 27000
+            # d03_main == 50000
             iiwa.closeGripper(position=27000) # TODO: ADD the gripper position based on the object in the future based on the gripping position
+
 
             print("Sending to home (viewing) position")
             succes_report = iiwa.sendCartisianPosition(

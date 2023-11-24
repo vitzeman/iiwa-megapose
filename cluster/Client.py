@@ -76,7 +76,7 @@ def get_megapose_estimation(
     socket.send(img)
     socket.send(bbox)
     socket.send(idx)
-    socket.send(K) # TODO add to main in pick_main.py
+    socket.send(K)
 
     pose = socket.recv(1024)
     return pose
