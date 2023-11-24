@@ -58,7 +58,7 @@ def parse_args():
 
 
 def get_megapose_estimation(
-    socket, img: np.ndarray, bbox: np.ndarray, idx: np.ndarray
+    socket, img: np.ndarray, bbox: np.ndarray, idx: np.ndarray, K: np.ndarray
 ) -> np.ndarray:
     """Sents the data to the server and waits for the response
 
@@ -76,6 +76,7 @@ def get_megapose_estimation(
     socket.send(img)
     socket.send(bbox)
     socket.send(idx)
+    socket.send(K) # TODO add to main in pick_main.py
 
     pose = socket.recv(1024)
     return pose
