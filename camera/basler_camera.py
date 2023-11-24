@@ -119,11 +119,12 @@ class BaslerCamera:
         self.camera.Close()
         logging.info("Camera disconnected")
 
-    def process_key(self, key: int) -> bool:
+    def process_key(self, key: int, name:str = "") -> bool:
         """Process key pressed by user
 
         Args:
             key (int): Key pressed by user
+            name (str): name of the image
 
         Returns:
             bool: True if program should stop, False otherwise
@@ -131,7 +132,7 @@ class BaslerCamera:
         if key in [ord("q"), 27]: # quit program maybe add Esc
             return True
         elif key == ord("s"):  # save image
-            self.save_current_image()
+            self.save_current_image(name = name)
         elif key == ord("a"):  # automatic camera adjustment
             self.adjust_camera()
         elif key == ord("h"):  # print help
@@ -236,7 +237,8 @@ class BaslerCamera:
             return None
 
         if name == "":
-            name = f"{datetime.now().isoformat()}.png"
+            name = f"{time.strftime('%Y%m%d-%H%M%S')}.png"
+
 
         path_to_save = os.path.join(self.save_location, name)
         cv2.imwrite(path_to_save, image)
@@ -283,7 +285,7 @@ class BaslerCamera:
             "h": new_h,
         }
         ideal_params_path = os.path.join(
-            self.save_location, "ideal_camera_parameters.json"
+            self.save_location, "ideal_camera_parameters_new.json"
         )
         save = False # TODO implement saving on request
         if save:

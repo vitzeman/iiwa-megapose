@@ -1,6 +1,8 @@
 import cv2 
 import numpy as np
 
+from basler_camera import BaslerCamera
+
 marker_size = 0.176
 
 
@@ -54,22 +56,39 @@ def pose_esitmation(frame):
     cv2.namedWindow("frame", cv2.WINDOW_NORMAL)
 
     i = 0   
-    for id in ids:
-        corner = corners[i]
-        nada, R, t = cv2.solvePnP(marker_points, corner, camera_matrix, dist_coeffs)
-        cv2.putText(frame, str(id[0]), (int(corner[0][0][0]), int(corner[0][0][1])), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
-        i += 1
+    if ids is not None:
+      for id in ids:
+          corner = corners[i]
+          nada, R, t = cv2.solvePnP(marker_points, corner, camera_matrix, dist_coeffs)
+          cv2.putText(frame, str(id[0]), (int(corner[0][0][0]), int(corner[0][0][1])), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+          i += 1
 
-        cv2.drawFrameAxes(image=frame, cameraMatrix=camera_matrix, distCoeffs=dist_coeffs, rvec=R, tvec=t, length=0.07)
+          cv2.drawFrameAxes(image=frame, cameraMatrix=camera_matrix, distCoeffs=dist_coeffs, rvec=R, tvec=t, length=0.07)
 
-        print(R, t)
+          print(R, t)
 
+    w,h = frame.shape[:2]
+    cv2.putText(frame, str(t), (100,100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+    cv2.circle(frame, (h//2, w//2), 5, (0, 0, 255), -1)
     cv2.imshow("frame", frame)
-    cv2.waitKey(0)
-
+    key = cv2.waitKey(1)
+    if key == ord('q'):
+        return True
+    
+    return False
     
 
 if __name__ == "__main__":
-    frame_path = "camera/images/demo/marker2.png"
-    frame = cv2.imread(frame_path)
-    pose_esitmation(frame)
+    
+    camera = BaslerCamera()
+    camera.connect()
+    camera.adjust_camera()
+    cv2.namedWindow("frame", cv2.WINDOW_NORMAL)
+
+    while True:
+        frame = camera.get_single_image()
+        should_quit = pose_esitmation(frame)
+
+        # cv2.imshow("frame", frame)
+        if should_quit:
+            break

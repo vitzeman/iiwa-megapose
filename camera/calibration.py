@@ -36,7 +36,7 @@ def parse_args():
         help="Number of vertices in the calibration pattern should be 2 numbers",
         nargs=2,
         required=False,
-        default=(6, 8),
+        default=(5, 8),
     )
     args = parser.parse_args()
     #
