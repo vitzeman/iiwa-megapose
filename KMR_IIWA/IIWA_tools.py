@@ -26,7 +26,12 @@ class IIWA_tools:
         self.C = C
         self.name = name
         # Why is this here?
-        self.calculateframe()
+        # self.calculateframe()
+
+        # This is the transformation matrix from flange to tool 
+        self.T_F2T = self.calculateframe()
+        # This is the transformation matrix from tool to flange
+        self.T_T2F = np.linalg.inv(self.T_F2T)
 
     def __repr__(self) -> str:
         return f"Tool: {self.name}, TX: {self.TX}, TY: {self.TY}, TZ: {self.TZ}, A: {self.A}, B: {self.B}, C: {self.C}"

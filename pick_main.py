@@ -48,10 +48,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-# TODO: Maybe move each class to file of its own
-# Frame_proccesing replaced with FrameProcessor
-
-
 def convert2TransfMatrix(TX, TY, TZ, A, B, C):
     RotationMatrix = R.from_euler("zyx", [A, B, C], degrees=True)
     TranslationMatrix = np.array([TX, TY, TZ]).reshape(
@@ -111,438 +107,6 @@ def transf2TxTyTzABC(transf):
     Z = Tra[2]
 
     return X, Y, Z, A, B, C
-
-
-# class Frame_processing(BaslerCamera):
-#     def __init__(
-#         self,
-#         serial_number: str = "24380112",
-#         camera_parametes: str = os.path.join("camera", "camera_parameters.json"),
-#         save_location: str = "",
-#     ) -> None:
-#         super().__init__(serial_number, camera_parametes, save_location)
-#         self.camera_ideal_params = self.get_ideal_camera_parameters()
-
-#         self.frame = None
-#         self.bbox = None
-#         self.idx = None
-
-#         self.window_name = "Proccess frame"
-#         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-#         cv2.setMouseCallback(self.window_name, self.extract_coordinates)
-
-#     def reset(self):
-#         self.frame = None
-#         self.bbox = None
-#         self.idx = None
-
-#     def extract_coordinates(self, event, x, y, flags, parameters):
-#         if event == cv2.EVENT_LBUTTONDOWN:
-#             # print("Left click")
-#             self.bbox = [x, y]
-#         elif event == cv2.EVENT_LBUTTONUP:
-#             # print("Left release")
-#             self.bbox.extend([x, y])
-#             self.bbox = np.array(self.bbox)
-#         elif event == cv2.EVENT_RBUTTONDOWN:
-#             # print("Right click")
-#             self.bbox = None
-
-#     def proccess_frame(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-#         # TODO: undistor the image
-
-#         frame = self.get_single_image()
-#         frame = self.undistort_image(frame)
-#         frame_vis = copy.deepcopy(frame)
-#         key = cv2.waitKey(1) & 0xFF
-#         should_quit = False
-#         if key == ord("q"):
-#             should_quit = True
-#         elif key == ord("h"):  # help
-#             print("q - quit NOT IMPLEMENTED")
-#             print("h - help")
-#             print("To select object press number from 1 to 8")
-#             for key, value in LABELS.items():
-#                 print(f"  {value} - {key}")
-#             print("To set bbox click on the image and drag the mouse - NOT IMPLEMENTED")
-#             print("To confirm press Enter")
-#             print("To reset press r")
-#         elif key in LABELS_NUMS_KEY:
-#             self.idx = np.array([key - 48])  # Convert ASCII code to number
-#             print(f"Selected object: {LABELS[self.idx[0]]}")
-#         elif key == ord("r"):
-#             self.reset()
-#         elif key == 13:  # enter
-#             self.frame = frame
-#             # TODO: does not work for some reason
-#             frame_vis = cv2.addWeighted(
-#                 frame_vis, 0.5, np.zeros_like(frame_vis), 0.5, 0
-#             )
-#             frame_vis = cv2.putText(
-#                 frame_vis,
-#                 f"Running_inference on {LABELS[self.idx[0]]}",
-#                 (400, 50),
-#                 cv2.FONT_HERSHEY_SIMPLEX,
-#                 1,
-#                 (255, 255, 255),
-#                 2,
-#                 cv2.LINE_AA,
-#             )
-
-#         if self.idx is None:
-#             cv2.putText(
-#                 frame_vis,
-#                 "Selected object: -",
-#                 (10, 50),
-#                 cv2.FONT_HERSHEY_SIMPLEX,
-#                 1,
-#                 (0, 0, 255),
-#                 2,
-#                 cv2.LINE_AA,
-#             )
-#         else:
-#             cv2.putText(
-#                 frame_vis,
-#                 f"Selected object: {LABELS[self.idx[0]]}",
-#                 (10, 50),
-#                 cv2.FONT_HERSHEY_SIMPLEX,
-#                 1,
-#                 (0, 0, 255),
-#                 2,
-#                 cv2.LINE_AA,
-#             )
-
-#         if self.bbox is not None and len(self.bbox) == 4:
-#             cv2.rectangle(
-#                 frame_vis,
-#                 (self.bbox[0], self.bbox[1]),
-#                 (self.bbox[2], self.bbox[3]),
-#                 (0, 255, 0),
-#                 2,
-#             )
-
-#         cv2.imshow(self.window_name, frame_vis)
-
-#         return should_quit, self.frame, self.bbox, self.idx
-
-
-# class IIWA_tools:
-#     def __init__(
-#         self, TX: float, TY: float, TZ: float, A: float, B: float, C: float, name: str
-#     ):
-#         """IIWA tools class to define the tools that are attached to the robot flange
-#         rotatation matrix is calculated using zyx euler angles
-
-#         Args:
-#             TX (float): x translation in mm
-#             TY (float): y translation in mm
-#             TZ (float): z translation in mm
-#             A (float): rotation around z axis in degrees
-#             B (float): rotation around y axis in degrees
-#             C (float): rotation around x axis in degrees
-#             name (str): Name of the tool
-#         """
-#         self.TX = TX  # mm
-#         self.TY = TY  # mm
-#         self.TZ = TZ  # mm
-#         self.A = A
-#         self.B = B
-#         self.C = C
-#         self.name = name
-#         # Why is this here?
-#         self.calculateframe()
-
-#     def __repr__(self) -> str:
-#         return f"Tool: {self.name}, TX: {self.TX}, TY: {self.TY}, TZ: {self.TZ}, A: {self.A}, B: {self.B}, C: {self.C}"
-
-#     def __str__(self):
-#         return self.name
-
-#     def calculateframe(self) -> np.ndarray:
-#         """#TODO : Docstring for calculateframe.
-
-#         Returns:
-#             np.ndarray: Transformation matrix of the tool
-#         """
-#         RotationMatrix = R.from_euler("zyx", [self.A, self.B, self.C], degrees=True)
-#         TranslationMatrix = np.array([self.TX, self.TY, self.TZ]).reshape(
-#             3,
-#         )
-#         TransformationMatrix = np.eye(4)
-
-#         TransformationMatrix[:3, :3] = RotationMatrix.as_matrix()
-#         TransformationMatrix[:3, 3] = TranslationMatrix
-#         return TransformationMatrix
-
-
-# class IIWA:
-#     """IIWA class to control the robot KMR troght http requests to the robot"""
-
-#     def __init__(self, ip):
-#         self.ip = ip
-#         self._get_cartisian_postion = (
-#             "http://" + self.ip + ":30000/" + "GetCartesianposition"
-#         )
-#         self._get_joint_positon = "http://" + self.ip + ":30000/" + "GetJointpostion"
-#         self._send_cartiesian_position = (
-#             "http://" + self.ip + ":30000/" + "GotoCartesianposition"
-#         )
-#         self._get_gripper_data = "http://" + self.ip + ":30000/" + "GetGripperpostion"
-#         self._senf_joint_position = (
-#             "http://" + self.ip + ":30000/" + "GotoJointposition"
-#         )
-#         self._close_griper = "http://" + self.ip + ":30000/" + "CloseGripper"
-#         self._open_gripper = "http://" + self.ip + ":30000/" + "OpenGripper"
-#         self._ready_to_send = "http://" + self.ip + ":30000/" + "ready"
-#         self._last_operation = "http://" + self.ip + ":30000/" + "failed"
-#         self.tool = {}
-
-#     def addTool(self, tool: IIWA_tools):
-#         """Add tool to the robot
-
-#         Args:
-#             tool (IIWA_tools): Tool to be added
-#         """
-#         self.tool[tool.name] = tool.calculateframe()
-
-#     def checkReady(self):
-#         """Check if the robot is ready to receive new commands
-
-#         Returns:
-#             _type_: _description_
-#         """
-#         result = requests.get(url=self._ready_to_send)
-#         time.sleep(1.0)
-#         result = result.content.decode()
-#         return result
-
-#     def checkLastOperation(self):
-#         result = requests.get(url=self._last_operation)
-#         time.sleep(1.0)
-#         result = result.content.decode()
-#         return result
-
-#     def getGripperpos(self):
-#         result = requests.get(url=self._get_gripper_data)
-#         time.sleep(1.0)
-#         result = result.content.decode()
-#         return result
-
-#     def closeGripper(self, position=40000, speed=40000, force=25000):
-#         while self.checkReady() != "OK":
-#             pass
-#         params = (
-#             "&position="
-#             + str(position)
-#             + "&speed="
-#             + str(speed)
-#             + "&force="
-#             + str(force)
-#         )
-#         close_operation = self._close_griper + "/?" + params
-#         requests.get(url=close_operation)
-#         print(
-#             f"Closing gripper to position {position} with speed {speed} and force {force}"
-#         )
-#         time.sleep(1.0)
-
-#     def openGripper(self):
-#         while self.checkReady() != "OK":
-#             pass
-
-#         print("Opening the gripper")
-#         requests.get(url=self._open_gripper)
-#         time.sleep(1.0)
-
-#     def getCartisianPosition(
-#         self, tool: IIWA_tools = None, degree: bool = True, stop: bool = True
-#     ) -> dict:
-#         """#TODO : Docstring for getCartisianPosition.
-
-#         Args:
-#             tool (IIWA_tools, optional): _description_. Defaults to None.
-#             degree (bool, optional): _description_. Defaults to True.
-#             stop (bool, optional): _description_. Defaults to True.
-
-#         Returns:
-#             dict: _description_
-#         """
-#         if stop:
-#             while self.checkReady() != "OK":
-#                 pass
-
-#         result = requests.get(url=self._get_cartisian_postion)
-#         time.sleep(1.0)
-#         position = json.loads(result.content)
-
-#         transformTool = None
-#         if tool:
-#             transformTool = self.tool[tool.name]
-#             position["tool"] = tool.name
-#         else:
-#             transformTool = np.eye(4)
-#             position["tool"] = "flange"
-
-#         RotationMatrix = R.from_euler(
-#             "zyx", [position["A"], position["B"], position["C"]], degrees=False
-#         )
-#         TranslationMatrix = np.array(
-#             [position["x"], position["y"], position["z"]]
-#         ).reshape(
-#             3,
-#         )
-
-#         TransformationMatrixflange = np.eye(4)
-#         TransformationMatrixflange[:3, :3] = RotationMatrix.as_matrix()
-#         TransformationMatrixflange[:3, 3] = TranslationMatrix
-
-#         Transformation = transformTool @ TransformationMatrixflange
-
-#         Rot = Transformation[:3, :3]
-#         Tra = Transformation[:3, 3]
-
-#         angles = R.from_matrix(Rot).as_euler("zyx", degrees=False)
-#         position["A"] = angles[0]
-#         position["B"] = angles[1]
-#         position["C"] = angles[2]
-#         position["x"] = Tra[0]
-#         position["y"] = Tra[1]
-#         position["z"] = Tra[2]
-
-#         if degree:
-#             position["A"] = np.rad2deg(position["A"])
-#             position["B"] = np.rad2deg(position["B"])
-#             position["C"] = np.rad2deg(position["C"])
-
-#         return position
-
-#     def getJointPostion(self, degree: bool = True):
-#         result = requests.get(url=self._get_joint_positon)
-#         time.sleep(1.0)
-#         position = json.loads(result.content)
-
-#         if degree:
-#             position["A1"] = np.rad2deg(position["A1"])
-#             position["A2"] = np.rad2deg(position["A2"])
-#             position["A3"] = np.rad2deg(position["A3"])
-#             position["A4"] = np.rad2deg(position["A4"])
-#             position["A5"] = np.rad2deg(position["A5"])
-#             position["A6"] = np.rad2deg(position["A6"])
-#             position["A7"] = np.rad2deg(position["A7"])
-
-#         return position
-
-#     def finddestinationframe(self, X, Y, Z, A, B, C, tool):
-#         TransformationMatrix = np.eye(4)
-#         RotationMatrix = R.from_euler("zyx", [A, B, C], degrees=True)
-#         TranslationMatrix = np.array([X, Y, Z]).reshape(
-#             3,
-#         )
-#         TransformationMatrix[:3, :3] = RotationMatrix.as_matrix()
-#         TransformationMatrix[:3, 3] = TranslationMatrix
-
-#         if tool:
-#             transformTool = self.tool[tool.name]
-#         else:
-#             transformTool = np.eye(4)
-
-#         destination = transformTool @ TransformationMatrix
-
-#         destRot = destination[:3, :3]
-#         destTra = destination[:3, 3]
-
-#         result = R.from_matrix(destRot).as_euler("zyx", degrees=True)
-#         A = result[0]
-#         B = result[1]
-#         C = result[2]
-#         X = destTra[0]
-#         Y = destTra[1]
-#         Z = destTra[2]
-
-#         return X, Y, Z, A, B, C
-
-#     def distancecurdest(self, X, Y, Z, tool):
-#         cartpostion = self.getCartisianPosition(tool)
-#         time.sleep(1.0)
-#         current = np.array(([cartpostion["x"], cartpostion["y"], cartpostion["z"]]))
-#         dest = np.array((X, Y, Z))
-#         distance = np.linalg.norm(current - dest)
-#         return distance
-
-#     def wait2ready(self) -> None:
-#         """Wait until the robot is ready that is mainly waiting for the robot to stop moving"""
-#         while self.checkReady() != "OK":
-#             pass
-#         print("Ready to go")
-
-#     def sendCartisianPosition(
-#         self,
-#         X: float,
-#         Y: float,
-#         Z: float,
-#         A: float,
-#         B: float,
-#         C: float,
-#         motion: str = "lin",
-#         speed: float = 0.1,
-#         tool: IIWA_tools = None,
-#         degree: bool = True,
-#         desc: str = None,
-#     ) -> str:
-#         """_summary_
-
-#         Args:
-#             X (float): _description_
-#             Y (float): _description_
-#             Z (float): _description_
-#             A (float): _description_
-#             B (float): _description_
-#             C (float): _description_
-#             motion (str, optional): _description_. Defaults to 'lin'.
-#             speed (float, optional): _description_. Defaults to 0.1.
-#             tool (IIWA_tools, optional): _description_. Defaults to None.
-#             degree (bool, optional): _description_. Defaults to True.
-#             desc (str, optional): Additional descriptin. Defaults to None.
-
-#         Returns:
-#             str: _description_
-#         """
-#         while self.checkReady() != "OK":
-#             pass
-
-#         if desc:
-#             print(desc)
-
-#         print(
-#             f"Sending cartisian position: X={X:.2f}, Y={Y:.2f}, Z={Z:.2f}, A={A:.2f}, B={B:.2f}, C={C:.2f}, tool={tool}, motion={motion}, speed={speed}"
-#         )
-
-#         X, Y, Z, A, B, C = self.finddestinationframe(X, Y, Z, A, B, C, tool)
-
-#         tra = "TX=" + str(X) + "&TY=" + str(Y) + "&TZ=" + str(Z)
-#         if degree:
-#             rot = (
-#                 "&TA="
-#                 + str(np.deg2rad(A))
-#                 + "&TB="
-#                 + str(np.deg2rad(B))
-#                 + "&TC="
-#                 + str(np.deg2rad(C))
-#             )
-
-#         motion_movement = "&Motion=" + motion
-#         robot_speed = "&Speed=" + str(speed)
-#         s = tra + rot + motion_movement + robot_speed
-
-#         send_operation = self._send_cartiesian_position + "/?" + s
-#         requests.get(send_operation)
-#         time.sleep(1.0)
-
-#         last_operation = self.checkLastOperation()
-#         if last_operation == "OK":
-#             return "Going to position"
-#         else:
-#             return "Cant go to the specified place"
 
 
 def frame_processing_test():
@@ -748,17 +312,16 @@ def main(robot_on: bool = True, server_on: bool = True):
     with open(os.path.join("camera", "extrinsic_calibration.json"), "r") as f:
         extrinsic_calibration = json.load(f)
 
-    t_c2f = np.array(extrinsic_calibration["t_C2F"])
-    angles = np.array(extrinsic_calibration["angles"])
+    t_f2c = np.array(extrinsic_calibration["t_C2F"])
+    c_angles = np.array(extrinsic_calibration["angles"])
 
     # Camera Extrinsic parameters # TODO: REDO THE INTRINSIC AND EXRTINSIC PARAMETERS
-    print(t_c2f)
-    c_A, c_B, c_C = t_c2f.flatten().tolist()
-    c_TX, c_TY, c_TZ = angles.flatten().tolist()
-    print(c_A, c_B, c_C)
+    c_A, c_B, c_C = t_f2c.flatten().tolist()
+    c_TX, c_TY, c_TZ = c_angles.flatten().tolist()
     iiwa_camera = IIWA_tools(
         TX=c_TX, TY=c_TY, TZ=c_TZ, A=c_A, B=c_B, C=c_C, name="camera"
     )
+    # Maybe add loading from file
     g_TX, g_TY, g_TZ = [5, -15, 230]
     g_A, g_B, g_C = [0, 0, 0]
     # iiwa_gripper = IIWA_tools(TX=5, TY=-15, TZ=230, A=0, B=0, C=0, name="gripper")
@@ -786,6 +349,7 @@ def main(robot_on: bool = True, server_on: bool = True):
         iiwa = IIWA(robot1_ip)
         iiwa.addTool(iiwa_camera)
         iiwa.addTool(iiwa_gripper)
+        iiwa.addTool(iiwa_prepick)
 
         pos = iiwa.getCartisianPosition(tool=None)
         iiwa.openGripper()
@@ -793,58 +357,18 @@ def main(robot_on: bool = True, server_on: bool = True):
         iiwa.sendCartisianPosition(
             X=v_Tx, Y=v_Ty, Z=v_Tz, A=v_A, B=v_B, C=v_C, motion="ptp", tool=None
         )
-        robot_flange_loc_dict = iiwa.getCartisianPosition(tool=None)
-        v_Tx_robot = robot_flange_loc_dict["x"]
-        v_Ty_robot = robot_flange_loc_dict["y"]
-        v_Tz_robot = robot_flange_loc_dict["z"]
-
-        v_A_robot = robot_flange_loc_dict["A"]
-        v_B_robot = robot_flange_loc_dict["B"]
-        v_C_robot = robot_flange_loc_dict["C"]
-    else:
-        v_Tx_robot, v_Ty_robot, v_Tz_robot = v_Tx, v_Ty, v_Tz
-        v_A_robot, v_B_robot, v_C_robot = v_A, v_B, v_C
-
-
-    T_f2W = np.eye(4)
-    T_f2W[:3, 3] = np.array([v_Tx_robot, v_Ty_robot, v_Tz_robot])
-    T_f2W[:3, :3] = R.from_euler(
-        "ZYX", [v_A_robot, v_B_robot, v_C_robot], degrees=True
-    ).as_matrix()
-
-    T_W2F = np.eye(4)
-    T_W2F[:3, 3] = np.array([v_Tx_robot, v_Ty_robot, v_Tz_robot])
-    T_W2F[:3, :3] = R.from_euler(
-        "ZYX", [v_A_robot, v_B_robot, v_C_robot], degrees=True
-    ).as_matrix()
 
     # TODO: Also intrinsics
-    camera_transformation = np.eye(4)
     # camera_translation = np.array([1, -88.5, 55])
     # camera_rotation = np.array([0, 0, 0])
-    camera_translation = t_c2f
-    camera_rotation = angles
+    camera_translation = t_f2c
+    camera_rotation = c_angles
 
-    camera_transformation[:3, :3] = R.from_euler(
-        "zyx", camera_rotation, degrees=True
-    ).as_matrix()
-    camera_transformation[:3, 3] = camera_translation.flatten()
-
+    # Flange to camera transformation is static basically
     T_F2C = np.eye(4)
-    T_F2C[:3, :3] = R.from_euler(
-        "zyx", camera_rotation, degrees=True
-    ).as_matrix()
-    T_F2C[:3,3] = camera_translation.flatten()
+    T_F2C[:3, :3] = R.from_euler("zyx", camera_rotation, degrees=True).as_matrix()
+    T_F2C[:3, 3] = camera_translation.flatten()
 
-    T_W2C = T_W2F @ T_F2C
-    print(T_W2C)
-    print(np.matmul(T_W2F, T_F2C))
-
-
-    camera_position = np.matmul(T_f2W, camera_transformation)
-    # print("camera postion in world space")
-    print(camera_position)
-    camera_position = np.linalg.inv(camera_position)
     # print("world postion in camera frame")
     # print(camera_position)
 
@@ -868,10 +392,11 @@ def main(robot_on: bool = True, server_on: bool = True):
                 )
             break
 
+        # While the user do not provide all the data the loop will continue
         if frame is None or bbox is None or idx is None:
             continue
 
-        # Sanitazing the data
+        # Sanitazing the data for the communication with the server
         if (
             type(frame) != np.ndarray
             or type(bbox) != np.ndarray
@@ -915,119 +440,117 @@ def main(robot_on: bool = True, server_on: bool = True):
                 ]
             )  # This is hardcoded for now TODO: remove this or replace with the last recorded data
 
+        if robot_on:
+            robot_flange_loc_dict = iiwa.getCartisianPosition(tool=None)
+            v_Tx_robot = robot_flange_loc_dict["x"]
+            v_Ty_robot = robot_flange_loc_dict["y"]
+            v_Tz_robot = robot_flange_loc_dict["z"]
 
-        # object_tranlation = np.array([0,-10, 350])
-        object_matrix = np.eye(4)
-        object_rotation = R.from_quat(
-            np.array([pose[0], pose[1], pose[2], pose[3]])
-        ).as_euler(seq="zyx", degrees=True)
-        object_matrix[:3, 3] = pose[4:] * 1000  # m2mm
-        object_matrix[:3, :3] = R.from_euler(
-            "zyx", object_rotation, degrees=True
+            v_A_robot = robot_flange_loc_dict["A"]
+            v_B_robot = robot_flange_loc_dict["B"]
+            v_C_robot = robot_flange_loc_dict["C"]
+        else:
+            v_Tx_robot, v_Ty_robot, v_Tz_robot = v_Tx, v_Ty, v_Tz
+            v_A_robot, v_B_robot, v_C_robot = v_A, v_B, v_C
+
+        # Cureent location of the robot flange
+        T_W2F = np.eye(4)
+        T_W2F[:3, 3] = np.array([v_Tx_robot, v_Ty_robot, v_Tz_robot])
+        T_W2F[:3, :3] = R.from_euler(
+            "ZYX", [v_A_robot, v_B_robot, v_C_robot], degrees=True
         ).as_matrix()
-        print("object matrix")
-        print(object_matrix)
+
         T_C2Ob = np.eye(4)
         T_C2Ob[:3, :3] = R.from_quat(
             np.array([pose[0], pose[1], pose[2], pose[3]])
         ).as_matrix()
         T_C2Ob[:3, 3] = pose[4:] * 1000  # m2mm
-        print(T_C2Ob)
 
+        # T_W2Ob = T_W2F @ T_F2C @ T_C2Ob
 
-        object_world = T_f2W @ camera_transformation @ object_matrix
-
-        T_W2Ob = T_W2F @ T_F2C @ T_C2Ob
-
-        # print("object world")
-        # print(object_world)
-        # print("T_W2Ob")
-        # print(T_W2Ob)
-
-        gripper_transformation = np.eye(4)
-        gripper_transformation[:3, 3] = np.array([0, 0, 220])
-
+        # This could be also loaded from some file
         T_F2G = np.eye(4)
         T_F2G[:3, 3] = np.array([5, -15, 230])
 
         T_F2P = np.eye(4)
         T_F2P[:3, 3] = np.array([5, -15, 330])
 
+        T_Ob2Og = np.eye(4)
+        # TODO: Add the base to grip transformation here for all the objects
+        # TODO: Update the IIWA tools to the np.linag.inv(T_F2G) inside the class
 
-        T_W2Ob_g = T_W2F @ T_F2C @ T_C2Ob @ np.linalg.inv(T_F2G)
-        T_W2Ob_p = T_W2F @ T_F2C @ T_C2Ob @ np.linalg.inv(T_F2P)
-        print("T_W2Ob_g")
-        print(T_W2Ob_g)
-        print("T_W2Ob_p")
-        print(T_W2Ob_p)
-
-        # object in gripper frame
-        camera_gripper_transformation = np.matmul(
-            camera_transformation, np.linalg.inv(gripper_transformation)
-        )
-        camera_gripper_transformation = np.linalg.inv(camera_gripper_transformation)
-
-        object_gripper = np.matmul(
-            np.linalg.inv(camera_gripper_transformation), object_matrix
-        )
-
-        # object in gripper pose frame
-        object_world = T_f2W @ object_gripper
-
-        # convert back rotation in world coordinate space
-        object_rotation = R.from_matrix(object_world[:3, :3]).as_euler(
-            "ZYX", degrees=True
-        )
-        object_translation = object_world[:3, 3]
+        T_W2Og = T_W2F @ T_F2C @ T_C2Ob @ T_Ob2Og
+        grip_rotation = R.from_matrix(T_W2Og[:3, :3]).as_euler("ZYX", degrees=True)
+        grip_translation = T_W2Og[:3, 3]
+        Og_TX = grip_translation[0]
+        Og_TY = grip_translation[1]
+        Og_TZ = grip_translation[2]
+        Og_A = grip_rotation[0]
+        Og_B = grip_rotation[1]
+        Og_C = grip_rotation[2]
 
 
-        Og_Tx = object_translation[0]
-        Og_Ty = object_translation[1]
-        Og_Tz = object_translation[2]
-        Og_A = object_rotation[0]
-        Og_B = object_rotation[1]
-        Og_C = object_rotation[2]
+        # T_W2Og = T_W2F @ T_F2C @ T_C2Ob @ T_Ob2Og @ np.linalg.inv(T_F2G)
+        # T_W2Op = T_W2F @ T_F2C @ T_C2Ob @ T_Ob2Og @ np.linalg.inv(T_F2P)
 
-        prepick_rotation = R.from_matrix(T_W2Ob_p[:3, :3]).as_euler(
-            "ZYX", degrees=True
-        )
-        prepick_translation = T_W2Ob_p[:3, 3]
-        Op_TX = prepick_translation[0]
-        Op_TY = prepick_translation[1]
-        Op_TZ = prepick_translation[2]
-        Op_A = prepick_rotation[0]
-        Op_B = prepick_rotation[1]
-        Op_C = prepick_rotation[2]
+        # prepick_rotation = R.from_matrix(T_W2Op[:3, :3]).as_euler("ZYX", degrees=True)
+        # prepick_translation = T_W2Op[:3, 3]
+        # Op_TX = prepick_translation[0]
+        # Op_TY = prepick_translation[1]
+        # Op_TZ = prepick_translation[2]
+        # Op_A = prepick_rotation[0]
+        # Op_B = prepick_rotation[1]
+        # Op_C = prepick_rotation[2]
 
-        pic_rotation = R.from_matrix(T_W2Ob_g[:3, :3]).as_euler(
-            "ZYX", degrees=True
-        )
-        pic_translation = T_W2Ob_g[:3, 3]
-        Og_TX = pic_translation[0]
-        Og_TY = pic_translation[1]
-        Og_TZ = pic_translation[2]
-        Og_A = pic_rotation[0]
-        Og_B = pic_rotation[1]
-        Og_C = pic_rotation[2]
-
+        # pic_rotation = R.from_matrix(T_W2Og[:3, :3]).as_euler("ZYX", degrees=True)
+        # pic_translation = T_W2Og[:3, 3]
+        # Og_TX = pic_translation[0]
+        # Og_TY = pic_translation[1]
+        # Og_TZ = pic_translation[2]
+        # Og_A = pic_rotation[0]
+        # Og_B = pic_rotation[1]
+        # Og_C = pic_rotation[2]
 
         if robot_on:
             iiwa.openGripper()
+            # print("Sending to prepick position")
+            # succes_report = iiwa.sendCartisianPosition(
+            #     X=Op_TX,
+            #     Y=Op_TY,
+            #     Z=Op_TZ,
+            #     A=Op_A,
+            #     B=Op_B,
+            #     C=Op_C,
+            #     motion="ptp",
+            #     tool=None,
+            # )
+            # print(succes_report)
 
+            # print("Sending to pick position")
+            # succes_report = iiwa.sendCartisianPosition(
+            #     X=Og_TX,
+            #     Y=Og_TY,
+            #     Z=Og_TZ,
+            #     A=Og_A,
+            #     B=Og_B,
+            #     C=Og_C,
+            #     motion="ptp",
+            #     tool=None,
+            # )
 
+            # print(succes_report)
             print("Sending to prepick position")
             succes_report = iiwa.sendCartisianPosition(
-                X=Op_TX,
-                Y=Op_TY,
-                Z=Op_TZ,
-                A=Op_A,
-                B=Op_B,
-                C=Op_C,
+                X=Og_TX,
+                Y=Og_TY,
+                Z=Og_TZ,
+                A=Og_A,
+                B=Og_B,
+                C=Og_C,
                 motion="ptp",
-                tool=None,
+                tool=iiwa_prepick,
             )
             print(succes_report)
-
             print("Sending to pick position")
             succes_report = iiwa.sendCartisianPosition(
                 X=Og_TX,
@@ -1037,10 +560,9 @@ def main(robot_on: bool = True, server_on: bool = True):
                 B=Og_B,
                 C=Og_C,
                 motion="ptp",
-                tool=None,
+                tool=iiwa_gripper,
             )
-            
-            print(succes_report)
+
             print(iiwa.getCartisianPosition(tool=None))
 
             # NOTE: For now
@@ -1057,7 +579,7 @@ def main(robot_on: bool = True, server_on: bool = True):
             print(succes_report)
 
         detector.reset()
-        print("Finished movement \n")
+        print("Finished movement \nReady for next object")
 
     # Deactivate everything else
     print("Quitting the program")

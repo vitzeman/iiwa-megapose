@@ -34,6 +34,7 @@ class IIWA:
         self._ready_to_send = "http://" + self.ip + ":30000/" + "ready"
         self._last_operation = "http://" + self.ip + ":30000/" + "failed"
         self.tool = {}
+        self.tools = {}
 
     def addTool(self, tool: IIWA_tools):
         """Add tool to the robot
@@ -42,6 +43,7 @@ class IIWA:
             tool (IIWA_tools): Tool to be added
         """
         self.tool[tool.name] = tool.calculateframe()
+        self.tools[tool.name] = tool
 
     def checkReady(self):
         """Check if the robot is ready to receive new commands
@@ -198,6 +200,23 @@ class IIWA:
         Z = destTra[2]
 
         return X, Y, Z, A, B, C
+    
+
+    def get_pose_of_tool(self, X, Y, Z, A, B, C, tool):
+        if not tool: # If flange is supposed to be used nothing changes
+            return X, Y, Z, A, B, C
+        
+        T_T2F = self.tools[tool.name].T_T2F
+        T = np.eye(4)
+        T[:3, :3] = R.from_euler("ZYX", [A, B, C], degrees=True).as_matrix()
+        T[:3, 3] = np.array([X, Y, Z])
+
+        T_fin = T @ T_T2F
+        nX, nY, nZ = T_fin[:3, 3]
+        nA, nB, nC = R.from_matrix(T_fin[:3, :3]).as_euler("ZYX", degrees=True)
+
+        return nX, nY, nZ, nA, nB, nC
+
 
     def distancecurdest(self, X, Y, Z, tool):
         cartpostion = self.getCartisianPosition(tool)
@@ -255,7 +274,8 @@ class IIWA:
             f"Sending cartisian position: X={X:.2f}, Y={Y:.2f}, Z={Z:.2f}, A={A:.2f}, B={B:.2f}, C={C:.2f}, tool={tool}, motion={motion}, speed={speed}"
         )
 
-        X, Y, Z, A, B, C = self.finddestinationframe(X, Y, Z, A, B, C, tool)
+        # X, Y, Z, A, B, C = self.finddestinationframe(X, Y, Z, A, B, C, tool)
+        X, Y, Z, A, B, C = self.get_pose_of_tool(X, Y, Z, A, B, C, tool)
 
         tra = "TX=" + str(X) + "&TY=" + str(Y) + "&TZ=" + str(Z)
         if degree:
