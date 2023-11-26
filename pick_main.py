@@ -300,6 +300,12 @@ def server_test():
 
 # THIS SHOULD BE THE MAIN FUNCTION
 def main(robot_on: bool = True, server_on: bool = True):
+    """ Main function for the demonstration of the picking and placing of the objects
+    #TODO: Not tested all the flags
+    Args:
+        robot_on (bool, optional): If false skips the robot part that is moving. Defaults to True.
+        server_on (bool, optional): If false skips the server part, uses last result. Defaults to True.
+    """    
     # Camera init
     print("Initializing camera")
     detector = FrameProcessor(camera_parametes="camera/camera_params.json")
