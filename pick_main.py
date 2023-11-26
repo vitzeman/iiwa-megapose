@@ -359,8 +359,6 @@ def main(robot_on: bool = True, server_on: bool = True):
         )
 
     # TODO: Also intrinsics
-    # camera_translation = np.array([1, -88.5, 55])
-    # camera_rotation = np.array([0, 0, 0])
     camera_translation = t_f2c
     camera_rotation = c_angles
 
@@ -368,9 +366,6 @@ def main(robot_on: bool = True, server_on: bool = True):
     T_F2C = np.eye(4)
     T_F2C[:3, :3] = R.from_euler("zyx", camera_rotation, degrees=True).as_matrix()
     T_F2C[:3, 3] = camera_translation.flatten()
-
-    # print("world postion in camera frame")
-    # print(camera_position)
 
     # TODO: Add parser for the host and port
     # Server comunication init
@@ -477,7 +472,6 @@ def main(robot_on: bool = True, server_on: bool = True):
 
         T_Ob2Og = np.eye(4)
         # TODO: Add the base to grip transformation here for all the objects
-        # TODO: Update the IIWA tools to the np.linag.inv(T_F2G) inside the class
 
         T_W2Og = T_W2F @ T_F2C @ T_C2Ob @ T_Ob2Og
         grip_rotation = R.from_matrix(T_W2Og[:3, :3]).as_euler("ZYX", degrees=True)
@@ -489,56 +483,8 @@ def main(robot_on: bool = True, server_on: bool = True):
         Og_B = grip_rotation[1]
         Og_C = grip_rotation[2]
 
-
-        # T_W2Og = T_W2F @ T_F2C @ T_C2Ob @ T_Ob2Og @ np.linalg.inv(T_F2G)
-        # T_W2Op = T_W2F @ T_F2C @ T_C2Ob @ T_Ob2Og @ np.linalg.inv(T_F2P)
-
-        # prepick_rotation = R.from_matrix(T_W2Op[:3, :3]).as_euler("ZYX", degrees=True)
-        # prepick_translation = T_W2Op[:3, 3]
-        # Op_TX = prepick_translation[0]
-        # Op_TY = prepick_translation[1]
-        # Op_TZ = prepick_translation[2]
-        # Op_A = prepick_rotation[0]
-        # Op_B = prepick_rotation[1]
-        # Op_C = prepick_rotation[2]
-
-        # pic_rotation = R.from_matrix(T_W2Og[:3, :3]).as_euler("ZYX", degrees=True)
-        # pic_translation = T_W2Og[:3, 3]
-        # Og_TX = pic_translation[0]
-        # Og_TY = pic_translation[1]
-        # Og_TZ = pic_translation[2]
-        # Og_A = pic_rotation[0]
-        # Og_B = pic_rotation[1]
-        # Og_C = pic_rotation[2]
-
         if robot_on:
             iiwa.openGripper()
-            # print("Sending to prepick position")
-            # succes_report = iiwa.sendCartisianPosition(
-            #     X=Op_TX,
-            #     Y=Op_TY,
-            #     Z=Op_TZ,
-            #     A=Op_A,
-            #     B=Op_B,
-            #     C=Op_C,
-            #     motion="ptp",
-            #     tool=None,
-            # )
-            # print(succes_report)
-
-            # print("Sending to pick position")
-            # succes_report = iiwa.sendCartisianPosition(
-            #     X=Og_TX,
-            #     Y=Og_TY,
-            #     Z=Og_TZ,
-            #     A=Og_A,
-            #     B=Og_B,
-            #     C=Og_C,
-            #     motion="ptp",
-            #     tool=None,
-            # )
-
-            # print(succes_report)
             print("Sending to prepick position")
             succes_report = iiwa.sendCartisianPosition(
                 X=Og_TX,

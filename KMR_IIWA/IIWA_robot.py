@@ -34,7 +34,6 @@ class IIWA:
         self._ready_to_send = "http://" + self.ip + ":30000/" + "ready"
         self._last_operation = "http://" + self.ip + ":30000/" + "failed"
         self.tool = {}
-        self.tools = {}
 
     def addTool(self, tool: IIWA_tools):
         """Add tool to the robot
@@ -43,7 +42,6 @@ class IIWA:
             tool (IIWA_tools): Tool to be added
         """
         self.tool[tool.name] = tool.calculateframe()
-        self.tools[tool.name] = tool
 
     def checkReady(self):
         """Check if the robot is ready to receive new commands
@@ -206,7 +204,8 @@ class IIWA:
         if not tool: # If flange is supposed to be used nothing changes
             return X, Y, Z, A, B, C
         
-        T_T2F = self.tools[tool.name].T_T2F
+
+        T_T2F = tool.T_T2F
         T = np.eye(4)
         T[:3, :3] = R.from_euler("ZYX", [A, B, C], degrees=True).as_matrix()
         T[:3, 3] = np.array([X, Y, Z])

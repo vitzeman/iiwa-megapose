@@ -28,7 +28,7 @@ class IIWA_tools:
         # Why is this here?
         # self.calculateframe()
 
-        # This is the transformation matrix from flange to tool 
+        # This is the transformation matrix from flange to tool
         self.T_F2T = self.calculateframe()
         # This is the transformation matrix from tool to flange
         self.T_T2F = np.linalg.inv(self.T_F2T)
