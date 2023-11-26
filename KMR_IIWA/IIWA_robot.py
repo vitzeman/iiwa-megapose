@@ -79,14 +79,16 @@ class IIWA:
         )
         close_operation = self._close_griper + "/?" + params
         requests.get(url=close_operation)
-        print("closing the gripper")
+        print(
+            f"Closing gripper to position {position} with speed {speed} and force {force}"
+        )
         time.sleep(1.0)
 
     def openGripper(self):
         while self.checkReady() != "OK":
             pass
 
-        print("opening the gripper")
+        print("Opening the gripper")
         requests.get(url=self._open_gripper)
         time.sleep(1.0)
 
