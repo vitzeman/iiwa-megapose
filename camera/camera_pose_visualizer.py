@@ -14,7 +14,11 @@ import pickle
 
 class CameraPoseVisualizer:
     def __init__(
-        self, xlim: tuple = (-1, 1), ylim: tuple = (-1, 1), zlim: tuple = (-1, 1)
+        self,
+        xlim: tuple = (-1, 1),
+        ylim: tuple = (-1, 1),
+        zlim: tuple = (-1, 1),
+        units: str = "m",
     ) -> None:
         self.fig = plt.figure(figsize=(7, 7))
         # self.ax = self.fig.gca(projection="3d")
@@ -24,11 +28,13 @@ class CameraPoseVisualizer:
         self.ax.set_ylim(ylim)
         self.ax.set_zlim(zlim)
 
-        self.ax.set_xlabel("x")
-        self.ax.set_ylabel("y")
-        self.ax.set_zlabel("z")
+        # self.ax.set_aspect("equal", "box")
 
-        length = min(xlim[1] - xlim[0], ylim[1] - ylim[0], zlim[1] - zlim[0]) * 0.1
+        self.ax.set_xlabel(f"x [{units}]")
+        self.ax.set_ylabel(f"y [{units}]")
+        self.ax.set_zlabel(f"z [{units}]")
+
+        length = max(xlim[1] - xlim[0], ylim[1] - ylim[0], zlim[1] - zlim[0]) * 0.1
 
         self.ax.quiver(0, 0, 0, 1, 0, 0, length=length, color="r", linewidth=1)
         self.ax.quiver(0, 0, 0, 0, 1, 0, length=length, color="g", linewidth=1)
@@ -47,65 +53,65 @@ class CameraPoseVisualizer:
         # if isinstance(pose, R):
         #     pose = pose.as_matrix()
 
-        # vertex_std = np.array(
-        #     [
-        #         [0, 0, 0, 1],
-        #         [
-        #             focal_len_scaled * aspect_ratio,
-        #             -focal_len_scaled * aspect_ratio,
-        #             focal_len_scaled,
-        #             1,
-        #         ],
-        #         [
-        #             focal_len_scaled * aspect_ratio,
-        #             focal_len_scaled * aspect_ratio,
-        #             focal_len_scaled,
-        #             1,
-        #         ],
-        #         [
-        #             -focal_len_scaled * aspect_ratio,
-        #             focal_len_scaled * aspect_ratio,
-        #             focal_len_scaled,
-        #             1,
-        #         ],
-        #         [
-        #             -focal_len_scaled * aspect_ratio,
-        #             -focal_len_scaled * aspect_ratio,
-        #             focal_len_scaled,
-        #             1,
-        #         ],
-        #     ]
-        # )
-
         vertex_std = np.array(
             [
-                [0, 0, focal_len_scaled, 1],
+                [0, 0, 0, 1],
                 [
                     focal_len_scaled * aspect_ratio,
                     -focal_len_scaled * aspect_ratio,
-                    0,
+                    focal_len_scaled,
                     1,
                 ],
                 [
                     focal_len_scaled * aspect_ratio,
                     focal_len_scaled * aspect_ratio,
-                    0,
+                    focal_len_scaled,
                     1,
                 ],
                 [
                     -focal_len_scaled * aspect_ratio,
                     focal_len_scaled * aspect_ratio,
-                    0,
+                    focal_len_scaled,
                     1,
                 ],
                 [
                     -focal_len_scaled * aspect_ratio,
                     -focal_len_scaled * aspect_ratio,
-                    0,
+                    focal_len_scaled,
                     1,
                 ],
             ]
         )
+
+        # vertex_std = np.array(
+        #     [
+        #         [0, 0, focal_len_scaled, 1],
+        #         [
+        #             focal_len_scaled * aspect_ratio,
+        #             -focal_len_scaled * aspect_ratio,
+        #             0,
+        #             1,
+        #         ],
+        #         [
+        #             focal_len_scaled * aspect_ratio,
+        #             focal_len_scaled * aspect_ratio,
+        #             0,
+        #             1,
+        #         ],
+        #         [
+        #             -focal_len_scaled * aspect_ratio,
+        #             focal_len_scaled * aspect_ratio,
+        #             0,
+        #             1,
+        #         ],
+        #         [
+        #             -focal_len_scaled * aspect_ratio,
+        #             -focal_len_scaled * aspect_ratio,
+        #             0,
+        #             1,
+        #         ],
+        #     ]
+        # )
 
         vertex_std = vertex_std @ T_mtx.T
         meshes = [
@@ -144,6 +150,9 @@ class CameraPoseVisualizer:
         if text:
             self.ax.text(*vertex_std[0, :-1], text, color=color)
 
+    def add_title(self, title: str):
+        self.ax.set_title(title)
+
     def show(self):
         self.ax.legend()
         plt.show()
@@ -163,6 +172,11 @@ class CameraPoseVisualizer:
     def load_pickle(self, path: str):
         with open(path, "rb") as f:
             self.fig = pickle.load(f)
+
+    def add_point(self, point: np.ndarray, color: str = "k", text: str = None):
+        self.ax.scatter(*point, color=color)
+        if text:
+            self.ax.text(*point, text, color=color)
 
 
 def load_pickle(path: str):
@@ -188,8 +202,8 @@ if __name__ == "__main__":
     # cam_pose_vis.load_pickle("test.pkl")
     # print("show")
     # cam_pose_vis.show()
-    fig = load_pickle("test.pkl")
-    plt.show()
+    # fig = load_pickle("test.pkl")
+    # plt.show()
 
     # cam_pose_vis.save("test.png")
     # cam_pose_vis = CameraPoseVisualizer(xlim=(-1, 1), ylim=(-1, 1), zlim=(0, 1))
@@ -232,3 +246,38 @@ if __name__ == "__main__":
 
     # cam_pose_vis.show()
     # cam_pose_vis.save("test.png")
+
+    path = os.path.join("camera", "new_capture_ext")
+    files = sorted(os.listdir(path))
+    print(files)
+
+    R_gripper2base = []
+    t_gripper2base = []
+
+    R_target2cam = []
+    t_target2cam = []
+    # cv2.namedWindow("frame", cv2.WINDOW_NORMAL)
+
+    cam_pose_vis = CameraPoseVisualizer(xlim=(-350, 50), ylim=(-700, 50), zlim=(0, 600))
+    cam_pose_vis.add_title("Camera poses")
+
+    cam_pose_vis.add_point(np.array([-200, -500, 0]), color="k", text=" M")
+
+    for e, (json_file, image_file) in enumerate(zip(files[0::2], files[1::2])):
+        with open(os.path.join(path, json_file), "r") as f:
+            pos = json.load(f)
+
+        A, B, C = pos["A"], pos["B"], pos["C"]
+        x, y, z = pos["x"], pos["y"], pos["z"]
+
+        # Base to flange/gripper
+        T_B2F = np.eye(4)
+        T_B2F[:3, 3] = np.array([x, y, z])
+        T_B2F[:3, :3] = R.from_euler("ZYX", [A, B, C], degrees=True).as_matrix()
+
+        cam_pose_vis.add_camera(
+            T_B2F, color="b", text=str(e + 1), focal_len_scaled=100, aspect_ratio=0.4
+        )
+
+    cam_pose_vis.save_pickle("poses.pkl")
+    cam_pose_vis.show()
