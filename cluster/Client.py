@@ -56,7 +56,6 @@ def parse_args():
 #     ssh.exec_command("conda deactivate")
 #     ssh.close()
 
-@timing
 def get_megapose_estimation(
     socket, img: np.ndarray, bbox: np.ndarray, idx: np.ndarray, K: np.ndarray
 ) -> np.ndarray:
