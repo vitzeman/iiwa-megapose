@@ -13,6 +13,18 @@ aruco_pattern/data
 # Basler camera demos
 camera/images/demo
 camera/data
+camera/calibration-90/
+camera/calibration-90_2/
+camera/calibration-180/
+camera/calibration0/
+camera/manual_cap2/
+camera/manual_images/
+camera/new_capture/
+camera/new_capture_ext/
+camera/test/
+camera/test2/
+
 
 #Megapose6D repository
 megapose6d/*
+
