@@ -23,6 +23,7 @@ camera/new_capture/
 camera/new_capture_ext/
 camera/test/
 camera/test2/
+camera/*.zip
 
 
 #Megapose6D repository
