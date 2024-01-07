@@ -31,6 +31,18 @@ LABELS = {
     7: "d07_axle_rear",
     8: "d08_chassis",
 }
+
+GRIPPER_DISTS = {
+    "d01_controller": 30000,
+    "d02_servo": 20000,
+    "d03_main" : 50000,
+    "d04_motor" : 2500,
+    "d05_axle_front": 1500,
+    "d06_battery": 65000,
+    "d07_axle_rear": 15000,
+    "d08_chassis": 26500,
+}
+
 LABELS_NUMS_KEY = [x + 48 for x in LABELS.keys()]  # ASCII code for numbers from 1 to 8
 
 np.set_printoptions(suppress=True)
@@ -413,12 +425,14 @@ def main(robot_on: bool = True, server_on: bool = True):
             frame_rgb = cv2.cvtColor(
                 frame, cv2.COLOR_BGR2RGB
             )  # NOTE Megapose expects RGB
+            t1 = time.time()
             pose = get_megapose_estimation(ml_socket, frame_rgb, bbox, idx, K)
+            t2 = time.time()
 
             #
             # Saving the data
             print(
-                f"Data received from megapose cluster:\n\tquat:{pose[:4]}\n\ttrnl:{pose[4:]}"
+                f"Data received from megapose cluster in time{t2-t1}:\n\tquat:{pose[:4]}\n\ttrnl:{pose[4:]}"
             )
             recorded_data = {
                 "label": LABELS[idx[0]],
@@ -472,13 +486,13 @@ def main(robot_on: bool = True, server_on: bool = True):
 
         # This could be also loaded from some file
         T_F2G = np.eye(4)
-        T_F2G[:3, 3] = np.array([5, -15, 230])
+        T_F2G[:3, 3] = np.array([-20, 0, 210])
 
         T_F2P = np.eye(4)
-        T_F2P[:3, 3] = np.array([5, -15, 330])
+        T_F2P[:3, 3] = np.array([-20, 5, 330])
 
         T_Ob2Og = np.eye(4)
-        # TODO: Add the base to grip transformation here for all the objects
+        # TODO: Add the base to grip transformation here for all the objects + itarations over them
 
         T_W2Og = T_W2F @ T_F2C @ T_C2Ob @ T_Ob2Og
         grip_rotation = R.from_matrix(T_W2Og[:3, :3]).as_euler("ZYX", degrees=True)
@@ -491,6 +505,7 @@ def main(robot_on: bool = True, server_on: bool = True):
         Og_C = grip_rotation[2]
 
         if robot_on:
+            succesfull_operation = True
             iiwa.openGripper()
             print("Sending to prepick position")
             succes_report = iiwa.sendCartisianPosition(
@@ -503,27 +518,33 @@ def main(robot_on: bool = True, server_on: bool = True):
                 motion="ptp",
                 tool=iiwa_prepick,
             )
+            succesfull_operation = succesfull_operation and succes_report
             print(succes_report)
             print("Sending to pick position")
-            succes_report = iiwa.sendCartisianPosition(
-                X=Og_TX,
-                Y=Og_TY,
-                Z=Og_TZ,
-                A=Og_A,
-                B=Og_B,
-                C=Og_C,
-                motion="ptp",
-                tool=iiwa_gripper,
-            )
+            if succesfull_operation:
+                succes_report = iiwa.sendCartisianPosition(
+                    X=Og_TX,
+                    Y=Og_TY,
+                    Z=Og_TZ,
+                    A=Og_A,
+                    B=Og_B,
+                    C=Og_C,
+                    motion="ptp",
+                    tool=iiwa_gripper,
+                )
+                succesfull_operation = succesfull_operation and succes_report
 
             print(iiwa.getCartisianPosition(tool=None))
 
             # NOTE: For now
             # d08_chassis == 27000
             # d03_main == 50000
-            iiwa.closeGripper(
-                position=50000
-            )  # TODO: ADD the gripper position based on the object in the future based on the gripping position
+            gripping_distance = GRIPPER_DISTS[LABELS[idx[0]]]
+            print(gripping_distance)
+            if succesfull_operation:
+                iiwa.closeGripper(
+                    position=gripping_distance
+                )  # TODO: ADD the gripper position based on the object in the future based on the gripping position
 
             print("Sending to home (viewing) position")
             succes_report = iiwa.sendCartisianPosition(
